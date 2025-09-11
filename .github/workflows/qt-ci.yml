@@ -1,0 +1,48 @@
+name: Build Windows EXE
+
+on: [push, pull_request]
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with: { submodules: recursive }
+
+    - name: Install Qt 5.15.2 + WebEngine
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: 5.15.2
+        host: windows
+        target: desktop
+        arch: win64_msvc2019_64
+        modules: qtwebengine
+
+    - name: MSVC env
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Configure
+      run: cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build (verbose2)
+      run: cmake --build build --config Release --parallel -v
+
+    - name: Build
+      run: cmake --build build --config Release --parallel
+
+    - name: Deploy (bundle Qt)
+      shell: pwsh
+      run: |
+        $exe = "build\\spothound.exe"
+        if (!(Test-Path $exe)) { throw "EXE not found: $exe" }
+        New-Item -ItemType Directory -Force -Path dist | Out-Null
+        Copy-Item $exe dist\
+        & "${{ env.Qt5_DIR }}\bin\windeployqt.exe" `
+          --release --webengine --compiler-runtime `
+          --dir dist dist\spothound.exe
+
+    - name: Zip artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: spothound-desktop-windows
+        path: dist/**

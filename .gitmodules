@@ -1,0 +1,3 @@
+[submodule "3rdparty/QXlsx"]
+	path = 3rdparty/QXlsx
+	url = https://github.com/QtExcel/QXlsx
