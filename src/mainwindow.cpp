@@ -1,11 +1,11 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "hintlistwidget.h"
 
 #include "scrapetask.h"
 #include "yandexscraper.h"
 #include "twogisscraper.h"
 #include "googlemapsscraper.h"
-#include "stopwordsdialog.h"
 
 #include <QWebEngineProfile>
 #include <QStandardPaths>
@@ -13,6 +13,7 @@
 #include <QGuiApplication>
 #include <QClipboard>
 #include <QFileDialog>
+#include <QKeyEvent>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -66,6 +67,63 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->gridSize, qOverload<int>(&QSpinBox::valueChanged), this, updateGridLabel);
     updateGridLabel(ui->gridSize->value());
 
+    // Keywords list
+    ui->keywordsList->setHint("Нет ключевых слов");
+    ui->keywordsList->installEventFilter(this);
+
+    auto addKeyword = [this] {
+        const QString word = ui->keywordInput->text().trimmed();
+        if (word.isEmpty()) return;
+        for (int i = 0; i < ui->keywordsList->count(); ++i)
+            if (ui->keywordsList->item(i)->text().compare(word, Qt::CaseInsensitive) == 0) {
+                ui->keywordInput->clear();
+                return;
+            }
+        ui->keywordsList->addItem(word);
+        ui->keywordInput->clear();
+    };
+    connect(ui->btnAddKeyword, &QPushButton::clicked, this, addKeyword);
+    connect(ui->keywordInput, &QLineEdit::returnPressed, this, addKeyword);
+    connect(ui->btnRemoveKeyword, &QPushButton::clicked, this, [this] {
+        delete ui->keywordsList->currentItem();
+    });
+
+    // Stop words list
+    auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(path);
+    m_stopStore = new StopWordsStore(path + "/stopwords.txt", this);
+
+    ui->stopWordsList->setHint("Нет стоп-слов");
+    ui->stopWordsList->installEventFilter(this);
+
+    auto reloadStopWords = [this] {
+        ui->stopWordsList->clear();
+        for (const QString& w : m_stopStore->list())
+            ui->stopWordsList->addItem(w);
+    };
+    reloadStopWords();
+
+    auto addStopWord = [this] {
+        const QString word = ui->stopWordInput->text().trimmed();
+        if (word.isEmpty()) return;
+        QStringList words = m_stopStore->list();
+        if (words.contains(word, Qt::CaseInsensitive)) { ui->stopWordInput->clear(); return; }
+        words << word;
+        m_stopStore->setList(words);
+        ui->stopWordsList->addItem(word);
+        ui->stopWordInput->clear();
+    };
+    connect(ui->btnAddStopWord, &QPushButton::clicked, this, addStopWord);
+    connect(ui->stopWordInput, &QLineEdit::returnPressed, this, addStopWord);
+    connect(ui->btnRemoveStopWord, &QPushButton::clicked, this, [this] {
+        const int row = ui->stopWordsList->currentRow();
+        if (row < 0) return;
+        QStringList words = m_stopStore->list();
+        words.removeAt(row);
+        m_stopStore->setList(words);
+        delete ui->stopWordsList->currentItem();
+    });
+
     connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
 
     connect(ui->btnNewSearch, &QPushButton::clicked, this, [this] {
@@ -77,15 +135,6 @@ MainWindow::MainWindow(QWidget *parent)
         m_progress->setFormat(QString());
         if (m_view) m_view->hide();
         ui->stackedWidget->setCurrentIndex(0);
-    });
-
-    auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(path);
-    m_stopStore = new StopWordsStore(path + "/stopwords.txt", this);
-
-    connect(ui->btnStopWords, &QPushButton::clicked, this, [this]{
-        StopWordsDialog dlg(m_stopStore, this);
-        dlg.exec();
     });
 
     connect(ui->exportXlsx, &QPushButton::clicked, this, [this]{
@@ -113,6 +162,30 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+bool MainWindow::eventFilter(QObject* obj, QEvent* e)
+{
+    if (e->type() == QEvent::KeyPress) {
+        auto* ke = static_cast<QKeyEvent*>(e);
+        if (ke->key() == Qt::Key_Delete || ke->key() == Qt::Key_Backspace) {
+            if (obj == ui->keywordsList) {
+                delete ui->keywordsList->currentItem();
+                return true;
+            }
+            if (obj == ui->stopWordsList) {
+                const int row = ui->stopWordsList->currentRow();
+                if (row >= 0) {
+                    QStringList words = m_stopStore->list();
+                    words.removeAt(row);
+                    m_stopStore->setList(words);
+                    delete ui->stopWordsList->currentItem();
+                }
+                return true;
+            }
+        }
+    }
+    return QMainWindow::eventFilter(obj, e);
+}
+
 void MainWindow::onStart()
 {
     const QString query = ui->searchRequest->text().trimmed();
@@ -122,8 +195,8 @@ void MainWindow::onStart()
     if (query.isEmpty()) return;
 
     QStringList keywords;
-    for (const QString& kw : ui->scoreKeywords->text().split(',', Qt::SkipEmptyParts))
-        keywords << kw.trimmed();
+    for (int i = 0; i < ui->keywordsList->count(); ++i)
+        keywords << ui->keywordsList->item(i)->text();
 
     if (m_currentScraper) m_currentScraper->reset();
 

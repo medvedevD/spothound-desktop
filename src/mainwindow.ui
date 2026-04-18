@@ -21,63 +21,34 @@
       <!-- PAGE 0: START -->
       <widget class="QWidget" name="startPage">
        <layout class="QVBoxLayout" name="startLayout">
+
         <item>
-         <spacer name="topSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
+         <widget class="QLabel" name="titleLabel">
+          <property name="text"><string>Spothound</string></property>
+          <property name="alignment"><set>Qt::AlignCenter</set></property>
+          <property name="font">
+           <font><pointsize>28</pointsize><bold>true</bold></font>
           </property>
-          <property name="sizeHint" stdset="0">
-           <size><width>20</width><height>80</height></size>
-          </property>
-         </spacer>
+          <property name="maximumHeight"><number>60</number></property>
+         </widget>
         </item>
+
         <item>
-         <layout class="QHBoxLayout">
+         <widget class="QLabel" name="subtitleLabel">
+          <property name="text"><string>Парсер карточек с Яндекс.Карт, 2ГИС и Google Maps</string></property>
+          <property name="alignment"><set>Qt::AlignCenter</set></property>
+          <property name="maximumHeight"><number>24</number></property>
+         </widget>
+        </item>
+
+        <item>
+         <layout class="QHBoxLayout" name="columnsLayout">
+
+          <!-- LEFT: Search -->
           <item>
-           <spacer name="leftSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size><width>40</width><height>20</height></size>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <widget class="QWidget" name="formContainer">
-            <property name="maximumWidth">
-             <number>480</number>
-            </property>
-            <layout class="QVBoxLayout" name="formVLayout">
-             <item>
-              <widget class="QLabel" name="titleLabel">
-               <property name="text">
-                <string>Spothound</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-               <property name="font">
-                <font><pointsize>32</pointsize><bold>true</bold></font>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QLabel" name="subtitleLabel">
-               <property name="text">
-                <string>Парсер карточек с Яндекс.Карт, 2ГИС и Google Maps</string>
-               </property>
-               <property name="alignment">
-                <set>Qt::AlignCenter</set>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer>
-               <property name="orientation"><enum>Qt::Vertical</enum></property>
-               <property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property>
-              </spacer>
-             </item>
+           <widget class="QGroupBox" name="searchGroup">
+            <property name="title"><string>Поиск</string></property>
+            <layout class="QVBoxLayout" name="searchGroupLayout">
              <item>
               <layout class="QFormLayout" name="formLayout">
                <item row="0" column="0">
@@ -109,20 +80,11 @@
                 </widget>
                </item>
                <item row="3" column="0">
-                <widget class="QLabel"><property name="text"><string>Ключевые слова:</string></property></widget>
-               </item>
-               <item row="3" column="1">
-                <widget class="QLineEdit" name="scoreKeywords">
-                 <property name="placeholderText"><string>через запятую</string></property>
-                 <property name="clearButtonEnabled"><bool>true</bool></property>
-                </widget>
-               </item>
-               <item row="4" column="0">
                 <widget class="QLabel" name="gridLabel">
                  <property name="text"><string>Сетка 5×5:</string></property>
                 </widget>
                </item>
-               <item row="4" column="1">
+               <item row="3" column="1">
                 <widget class="QSpinBox" name="gridSize">
                  <property name="minimum"><number>2</number></property>
                  <property name="maximum"><number>10</number></property>
@@ -134,7 +96,7 @@
              <item>
               <spacer>
                <property name="orientation"><enum>Qt::Vertical</enum></property>
-               <property name="sizeHint" stdset="0"><size><width>20</width><height>16</height></size></property>
+               <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
               </spacer>
              </item>
              <item>
@@ -148,27 +110,82 @@
             </layout>
            </widget>
           </item>
+
+
+          <!-- RIGHT: Filters -->
           <item>
-           <spacer name="rightSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size><width>40</width><height>20</height></size>
-            </property>
-           </spacer>
+           <widget class="QTabWidget" name="filtersTab">
+
+            <widget class="QWidget" name="tabKeywords">
+             <attribute name="title"><string>Ключевые слова</string></attribute>
+             <layout class="QVBoxLayout">
+              <item>
+               <widget class="QLabel" name="keywordsLabel">
+                <property name="text"><string>Ключевые слова для скоринга:</string></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="HintListWidget" name="keywordsList"/>
+              </item>
+              <item>
+               <layout class="QHBoxLayout">
+                <item>
+                 <widget class="QLineEdit" name="keywordInput">
+                  <property name="placeholderText"><string>Новое слово...</string></property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnAddKeyword">
+                  <property name="text"><string>Добавить</string></property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnRemoveKeyword">
+                  <property name="text"><string>Удалить</string></property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+
+            <widget class="QWidget" name="tabStopWords">
+             <attribute name="title"><string>Стоп-слова</string></attribute>
+             <layout class="QVBoxLayout">
+              <item>
+               <widget class="QLabel" name="stopWordsLabel">
+                <property name="text"><string>Стоп-слова (результаты с этими словами будут скрыты):</string></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="HintListWidget" name="stopWordsList"/>
+              </item>
+              <item>
+               <layout class="QHBoxLayout">
+                <item>
+                 <widget class="QLineEdit" name="stopWordInput">
+                  <property name="placeholderText"><string>Новое слово...</string></property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnAddStopWord">
+                  <property name="text"><string>Добавить</string></property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnRemoveStopWord">
+                  <property name="text"><string>Удалить</string></property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+
+           </widget>
           </item>
+
          </layout>
-        </item>
-        <item>
-         <spacer name="bottomSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size><width>20</width><height>80</height></size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </widget>
@@ -214,12 +231,6 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="btnStopWords">
-            <property name="text"><string>Стоп-слова</string></property>
-            <property name="icon"><iconset theme="process-stop"/></property>
-           </widget>
-          </item>
-          <item>
            <widget class="QPushButton" name="btnClear">
             <property name="text"><string>Очистить таблицу</string></property>
             <property name="icon"><iconset theme="edit-clear"/></property>
@@ -241,6 +252,13 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>HintListWidget</class>
+   <extends>QListWidget</extends>
+   <header>hintlistwidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

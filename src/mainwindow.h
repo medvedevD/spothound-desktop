@@ -24,6 +24,9 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+protected:
+    bool eventFilter(QObject* obj, QEvent* e) override;
+
 private:
     void onStart();
     void onTableContextMenu(const QPoint &pos);
