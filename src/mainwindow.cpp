@@ -20,9 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    ui->searchRequest->addAction(QIcon::fromTheme(QStringLiteral("edit-find")), QLineEdit::LeadingPosition);
-
-    m_phaseLbl = new QLabel("Click the 'start' button to start parsing", this);
+    m_phaseLbl = new QLabel(this);
     m_progress = new QProgressBar(this);
     m_progress->setMinimumWidth(320);
     m_progress->setTextVisible(true);
@@ -53,8 +51,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_profile->setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36");
     m_profile->setHttpAcceptLanguage("ru-RU,ru;q=0.9,en-US;q=0.7");
 
-    // Yandex cookies set up once — YandexScraper::setupProfile is called in its constructor,
-    // but we also call it here so the profile is ready even before the first scraper is created.
     YandexScraper::setupProfile(m_profile);
 
     m_view = new QWebEngineView(nullptr);
@@ -64,7 +60,24 @@ MainWindow::MainWindow(QWidget *parent)
     m_view->resize(1100, 800);
     m_view->hide();
 
+    auto updateGridLabel = [this](int n) {
+        ui->gridLabel->setText(QString("Сетка %1×%1:").arg(n));
+    };
+    connect(ui->gridSize, qOverload<int>(&QSpinBox::valueChanged), this, updateGridLabel);
+    updateGridLabel(ui->gridSize->value());
+
     connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
+
+    connect(ui->btnNewSearch, &QPushButton::clicked, this, [this] {
+        if (m_currentScraper) m_currentScraper->reset();
+        m_model->clear();
+        m_phaseLbl->setText(QString());
+        m_progress->setRange(0, 1);
+        m_progress->setValue(0);
+        m_progress->setFormat(QString());
+        if (m_view) m_view->hide();
+        ui->stackedWidget->setCurrentIndex(0);
+    });
 
     auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(path);
@@ -76,7 +89,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     connect(ui->exportXlsx, &QPushButton::clicked, this, [this]{
-        const QString fn = QFileDialog::getSaveFileName(this, "Export to Excel",
+        const QString fn = QFileDialog::getSaveFileName(this, "Экспорт в Excel",
                              "results.xlsx", "Excel (*.xlsx)");
         if (fn.isEmpty()) return;
         m_model->exportXlsx(fn);
@@ -85,12 +98,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnClear, &QPushButton::clicked, this, [this]{
         if (m_currentScraper) m_currentScraper->reset();
         m_model->clear();
-        m_phaseLbl->setText("Click the 'start' button to start parsing");
-        m_progress->setRange(0,1);
+        m_phaseLbl->setText(QString());
+        m_progress->setRange(0, 1);
         m_progress->setValue(0);
         m_progress->setFormat(QString());
         if (m_view) m_view->hide();
     });
+
+    ui->stackedWidget->setCurrentIndex(0);
 }
 
 MainWindow::~MainWindow()
@@ -110,13 +125,12 @@ void MainWindow::onStart()
     for (const QString& kw : ui->scoreKeywords->text().split(',', Qt::SkipEmptyParts))
         keywords << kw.trimmed();
 
-    // Stop any running scraper
     if (m_currentScraper) m_currentScraper->reset();
 
     ScrapeTask* scraper = nullptr;
     const int source = ui->sourceCombo->currentIndex();
     switch (source) {
-    case 0: scraper = new YandexScraper(query, city, m_profile, m_stopStore, keywords, this); break;
+    case 0: scraper = new YandexScraper(query, city, m_profile, m_stopStore, keywords, ui->gridSize->value(), this); break;
     case 1: scraper = new TwoGisScraper(query, city, m_profile, m_stopStore, keywords, this); break;
     case 2: scraper = new GoogleMapsScraper(query, city, m_profile, m_stopStore, keywords, this); break;
     default: return;
@@ -124,10 +138,14 @@ void MainWindow::onStart()
 
     m_currentScraper = scraper;
 
+    const QStringList sourceNames = {"Яндекс.Карты", "2ГИС", "Google Maps"};
+    QString summary = sourceNames.value(source) + " · " + city + " · " + query;
+    if (!keywords.isEmpty()) summary += " · " + keywords.join(", ");
+    ui->searchSummaryLabel->setText(summary);
+
+    ui->stackedWidget->setCurrentIndex(1);
+
     connect(scraper, &ScrapeTask::captchaRequested, this, [this](QWebEnginePage* page){
-        connect(page, &QWebEnginePage::urlChanged, this, [this](const QUrl&){
-            // hide preview when captcha is solved (URL changes away from captcha page)
-        });
         m_view->setPage(page);
         m_view->show();
         m_view->raise();
@@ -150,23 +168,23 @@ void MainWindow::onStart()
     connect(scraper, &ScrapeTask::gridProgress, this, [this](int total, int done){
         m_progress->setRange(0, qMax(1, total));
         m_progress->setValue(done);
-        m_progress->setFormat(QString("Zones: %1/%2 (%p%)").arg(done).arg(total));
+        m_progress->setFormat(QString("Зоны: %1/%2 (%p%)").arg(done).arg(total));
     });
 
     connect(scraper, &ScrapeTask::queueSized, this, [this](int total){
         m_progress->setRange(0, qMax(1, total));
         m_progress->setValue(0);
-        m_progress->setFormat(QString("Cards: 0/%1 (0%)").arg(total));
+        m_progress->setFormat(QString("Карточки: 0/%1 (0%)").arg(total));
     });
 
     connect(scraper, &ScrapeTask::parseProgress, this, [this](int total, int done){
         m_progress->setRange(0, qMax(1, total));
         m_progress->setValue(done);
-        m_progress->setFormat(QString("Cards: %1/%2 (%p%)").arg(done).arg(total));
+        m_progress->setFormat(QString("Карточки: %1/%2 (%p%)").arg(done).arg(total));
     });
 
     connect(scraper, &ScrapeTask::finishedAll, this, [this]{
-        m_phaseLbl->setText("Done");
+        m_phaseLbl->setText("Готово");
         m_progress->setFormat(QString());
         m_progress->setValue(m_progress->maximum());
     });
@@ -186,10 +204,10 @@ void MainWindow::onTableContextMenu(const QPoint& pos) {
     if (!idx.isValid()) return;
 
     QMenu m(this);
-    QAction* aCell = m.addAction("Copy cell");
-    QAction* aRow  = m.addAction("Copy line");
-    QAction* aCol  = m.addAction("Copy column");
-    QAction* aDel  = m.addAction("Delete line");
+    QAction* aCell = m.addAction("Копировать ячейку");
+    QAction* aRow  = m.addAction("Копировать строку");
+    QAction* aCol  = m.addAction("Копировать столбец");
+    QAction* aDel  = m.addAction("Удалить строку");
 
     QAction* act = m.exec(tv->viewport()->mapToGlobal(pos));
     if (!act) return;

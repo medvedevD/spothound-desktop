@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QProgressBar>
+#include <QSpinBox>
 #include <QWebEngineView>
 
 QT_BEGIN_NAMESPACE

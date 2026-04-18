@@ -26,8 +26,10 @@ YandexScraper::YandexScraper(QString query, QString city,
                              QWebEngineProfile* profile,
                              StopWordsStore* stopWordsStore,
                              QStringList scoreKeywords,
+                             int gridN,
                              QObject* p)
     : ScrapeTask(std::move(query), std::move(city), profile, stopWordsStore, std::move(scoreKeywords), p)
+    , m_gridN(qBound(2, gridN, 10))
 {
     setupProfile(m_profile);
 }
@@ -102,7 +104,7 @@ void YandexScraper::buildCells() {
         lat0 = 55.55; lat1 = 55.95;
         m_cellZoom = 14;
     }
-    const int nx = 5, ny = 5;
+    const int nx = m_gridN, ny = m_gridN;
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix) {
             double lon = lon0 + (lon1 - lon0) * (ix + 0.5) / nx;

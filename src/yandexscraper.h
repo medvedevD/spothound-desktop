@@ -13,6 +13,7 @@ public:
                            QWebEngineProfile* profile,
                            StopWordsStore* stopWordsStore,
                            QStringList scoreKeywords = {},
+                           int gridN = 5,
                            QObject* parent = nullptr);
 
     void start() override;
@@ -48,6 +49,7 @@ private:
     void buildCells();
     void nextCell();
 
+    int m_gridN = 5;
     int m_totalCells = 0, m_doneCells = 0;
     int m_totalCards = 0, m_doneCards = 0;
 };
