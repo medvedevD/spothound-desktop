@@ -1,6 +1,11 @@
 #include "scrapetask.h"
 #include "stopwordsstore.h"
 
+#include <QDateTime>
+#include <QDebug>
+#include <QFile>
+#include <QStandardPaths>
+
 ScrapeTask::ScrapeTask(QString query, QString city,
                        QWebEngineProfile* profile,
                        StopWordsStore* stopWordsStore,
@@ -17,4 +22,58 @@ ScrapeTask::ScrapeTask(QString query, QString city,
 bool ScrapeTask::isBlocked(const PlaceRow& r) const
 {
     return m_stopWordsStore && m_stopWordsStore->matchesRow(r);
+}
+
+void ScrapeTask::emitStats()
+{
+    const qint64 minMs = m_stats.minCardMs < 0 ? 0 : m_stats.minCardMs;
+
+    const qint64 interCardMs = m_stats.cardCount > 0
+        ? (m_stats.parsingMs - m_stats.totalCardProcessMs) / m_stats.cardCount : 0;
+    qDebug() << qPrintable(QString(
+        "[PERF] source=%1 total=%2s collection=%3s parsing=%4s cards=%5 avg=%6ms min=%7ms max=%8ms inter=%9ms probes=%10")
+        .arg(m_stats.source)
+        .arg((m_stats.collectionMs + m_stats.parsingMs) / 1000.0, 0, 'f', 1)
+        .arg(m_stats.collectionMs / 1000.0, 0, 'f', 1)
+        .arg(m_stats.parsingMs / 1000.0, 0, 'f', 1)
+        .arg(m_stats.cardCount)
+        .arg(m_stats.avgCardMs())
+        .arg(minMs)
+        .arg(m_stats.maxCardMs)
+        .arg(interCardMs)
+        .arg(m_stats.probeRetries));
+
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    const QString ts  = QString::number(QDateTime::currentSecsSinceEpoch());
+    QFile f(dir + "/spothound_perf_" + ts + ".json");
+    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        const QString json = QString(
+            "{\n"
+            "  \"source\": \"%1\",\n"
+            "  \"query\": \"%2\",\n"
+            "  \"city\": \"%3\",\n"
+            "  \"total_ms\": %4,\n"
+            "  \"collection_ms\": %5,\n"
+            "  \"parsing_ms\": %6,\n"
+            "  \"grid_n\": %7,\n"
+            "  \"grid_cells\": %8,\n"
+            "  \"card_count\": %9,\n"
+            "  \"probe_retries\": %10,\n"
+            "  \"min_card_ms\": %11,\n"
+            "  \"max_card_ms\": %12,\n"
+            "  \"avg_card_ms\": %13,\n"
+            "  \"inter_card_delay_ms\": %14\n"
+            "}\n"
+        ).arg(m_stats.source, m_stats.query, m_stats.city)
+         .arg(m_stats.collectionMs + m_stats.parsingMs)
+         .arg(m_stats.collectionMs).arg(m_stats.parsingMs)
+         .arg(m_stats.gridN).arg(m_stats.gridCells)
+         .arg(m_stats.cardCount).arg(m_stats.probeRetries)
+         .arg(minMs).arg(m_stats.maxCardMs).arg(m_stats.avgCardMs())
+         .arg(interCardMs);
+        f.write(json.toUtf8());
+        qDebug() << "[PERF] written to" << f.fileName();
+    }
+
+    emit statsReady(m_stats);
 }

@@ -22,6 +22,13 @@ GoogleMapsScraper::GoogleMapsScraper(QString query, QString city,
 void GoogleMapsScraper::start()
 {
     m_aborted = false;
+    m_parsingStarted = false;
+    m_stats = {};
+    m_stats.source = QStringLiteral("Google Maps");
+    m_stats.query = m_query + " " + m_city;
+    m_stats.city = m_city;
+    m_collectionTimer.start();
+
     m_seen.clear();
     m_hrefQueue.clear();
     m_pass = 0; m_idlePass = 0; m_delay = 1200;
@@ -177,9 +184,17 @@ void GoogleMapsScraper::processQueue()
 {
     if (m_aborted) return;
 
+    if (!m_parsingStarted) {
+        m_stats.collectionMs = m_collectionTimer.elapsed();
+        m_parsingTimer.start();
+        m_parsingStarted = true;
+    }
+
     if (m_hrefQueue.isEmpty()) {
+        m_stats.parsingMs = m_parsingTimer.elapsed();
         emit parseProgress(m_totalCards, m_totalCards);
         emit phaseChanged("idle");
+        emitStats();
         emit finishedAll();
         emit finished();
         return;
@@ -279,6 +294,11 @@ void GoogleMapsScraper::openCard(const QUrl& href)
                         }
 
                         emit result(r);
+                        const qint64 cardMs = m_cardTimer.elapsed();
+                        m_stats.cardCount++;
+                        m_stats.totalCardProcessMs += cardMs;
+                        if (m_stats.minCardMs < 0 || cardMs < m_stats.minCardMs) m_stats.minCardMs = cardMs;
+                        m_stats.maxCardMs = qMax(m_stats.maxCardMs, cardMs);
                         page->deleteLater();
 
                         m_doneCards++;
@@ -288,6 +308,7 @@ void GoogleMapsScraper::openCard(const QUrl& href)
                                            this, &GoogleMapsScraper::processQueue);
                     });
                 } else {
+                    m_stats.probeRetries++;
                     QTimer::singleShot(400, [probe, left]{ (*probe)(left - 1); });
                 }
             });
@@ -295,6 +316,7 @@ void GoogleMapsScraper::openCard(const QUrl& href)
         (*probe)(5);
     });
 
+    m_cardTimer.start();
     qDebug() << "[GMaps] openCard" << href;
     emit preview(page, "Google Maps карточка: " + href.toString());
     page->load(href);

@@ -2,12 +2,29 @@
 #define SCRAPETASK_H
 
 #include "placerow.h"
+#include <QElapsedTimer>
 #include <QObject>
 #include <QStringList>
 
 class QWebEnginePage;
 class QWebEngineProfile;
 class StopWordsStore;
+
+struct ScrapeStats {
+    QString source;
+    QString query;
+    QString city;
+    int gridN = 0;
+    int gridCells = 0;
+    qint64 collectionMs = 0;
+    qint64 parsingMs = 0;
+    qint64 totalCardProcessMs = 0;
+    int cardCount = 0;
+    int probeRetries = 0;
+    qint64 minCardMs = -1;
+    qint64 maxCardMs = 0;
+    qint64 avgCardMs() const { return cardCount > 0 ? totalCardProcessMs / cardCount : 0; }
+};
 
 class ScrapeTask : public QObject {
     Q_OBJECT
@@ -31,16 +48,24 @@ signals:
     void gridProgress(int total, int done);
     void queueSized(int total);
     void parseProgress(int total, int done);
+    void statsReady(ScrapeStats stats);
     void finishedAll();
 
 protected:
     bool isBlocked(const PlaceRow& r) const;
+    void emitStats();
 
     QString m_query;
     QString m_city;
     QWebEngineProfile* m_profile = nullptr;
     StopWordsStore* m_stopWordsStore = nullptr;
     QStringList m_scoreKeywords;
+
+    ScrapeStats m_stats;
+    QElapsedTimer m_collectionTimer;
+    QElapsedTimer m_parsingTimer;
+    QElapsedTimer m_cardTimer;
+    bool m_parsingStarted = false;
 };
 
 #endif // SCRAPETASK_H

@@ -54,8 +54,15 @@ void YandexScraper::start()
 {
     m_aborted = false;
     m_forcedRu = false;
+    m_parsingStarted = false;
+    m_stats = {};
+    m_stats.source = QStringLiteral("Яндекс.Карты");
+    m_stats.query = m_query + " " + m_city;
+    m_stats.city = m_city;
+    m_collectionTimer.start();
 
     m_seen.clear();
+
     m_seenGlobal.clear();
     m_cells.clear();
     m_cellIdx = 0;
@@ -64,6 +71,8 @@ void YandexScraper::start()
 
     m_totalCells = m_cells.size();
     m_doneCells  = 0;
+    m_stats.gridN = m_gridN;
+    m_stats.gridCells = m_totalCells;
     emit phaseChanged("Collection of stores by zone");
     emit gridProgress(m_totalCells, m_doneCells);
 
@@ -354,11 +363,20 @@ void YandexScraper::collectHrefsStep()
 void YandexScraper::processQueue()
 {
     if (m_aborted) return;
+
+    if (!m_parsingStarted) {
+        m_stats.collectionMs = m_collectionTimer.elapsed();
+        m_parsingTimer.start();
+        m_parsingStarted = true;
+    }
+
     qDebug() << "[YS] queue size:" << m_hrefQueue.size();
 
     if (m_hrefQueue.isEmpty()) {
+        m_stats.parsingMs = m_parsingTimer.elapsed();
         emit parseProgress(m_totalCards, m_totalCards);
         emit phaseChanged("idle");
+        emitStats();
         emit finishedAll();
         emit finished();
         return;
@@ -520,6 +538,11 @@ void YandexScraper::openCard(const QUrl& href) {
                         }
 
                         emit result(r);
+                        const qint64 cardMs = m_cardTimer.elapsed();
+                        m_stats.cardCount++;
+                        m_stats.totalCardProcessMs += cardMs;
+                        if (m_stats.minCardMs < 0 || cardMs < m_stats.minCardMs) m_stats.minCardMs = cardMs;
+                        m_stats.maxCardMs = qMax(m_stats.maxCardMs, cardMs);
                         page->deleteLater();
 
                         m_doneCards++;
@@ -529,6 +552,7 @@ void YandexScraper::openCard(const QUrl& href) {
                                            this, &YandexScraper::processQueue);
                     });
                 } else {
+                    m_stats.probeRetries++;
                     QTimer::singleShot(400, [probe, left]{ (*probe)(left-1); });
                 }
             });
@@ -536,6 +560,7 @@ void YandexScraper::openCard(const QUrl& href) {
         (*probe)(5);
     });
 
+    m_cardTimer.start();
     qDebug() << "[YS] openCard" << href;
     emit preview(page, "Карточка: " + href.toString());
     page->load(href);

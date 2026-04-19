@@ -9,6 +9,7 @@
 
 #include <QWebEngineProfile>
 #include <QMenu>
+#include <memory>
 #include <QVBoxLayout>
 #include <QStandardPaths>
 #include <QDir>
@@ -330,8 +331,22 @@ void MainWindow::onStart()
         m_progress->setFormat(QString("Карточки: %1/%2 (%p%)").arg(done).arg(total));
     });
 
-    connect(scraper, &ScrapeTask::finishedAll, this, [this]{
-        m_phaseLbl->setText("Готово");
+    auto statsHolder = std::make_shared<ScrapeStats>();
+    connect(scraper, &ScrapeTask::statsReady, this, [statsHolder](ScrapeStats s){
+        *statsHolder = s;
+    });
+
+    connect(scraper, &ScrapeTask::finishedAll, this, [this, statsHolder]{
+        const ScrapeStats& s = *statsHolder;
+        if (s.cardCount > 0) {
+            m_phaseLbl->setText(QString("Готово | Сбор: %1с | %2 карт за %3с (avg %4с/карт)")
+                .arg(s.collectionMs / 1000.0, 0, 'f', 1)
+                .arg(s.cardCount)
+                .arg(s.parsingMs / 1000.0, 0, 'f', 1)
+                .arg(s.avgCardMs() / 1000.0, 0, 'f', 1));
+        } else {
+            m_phaseLbl->setText("Готово");
+        }
         m_progress->setFormat(QString());
         m_progress->setValue(m_progress->maximum());
     });
