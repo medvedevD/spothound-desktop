@@ -3,6 +3,7 @@
 #include "captchaawarepage.h"
 #include "rules.h"
 
+#include <QPointer>
 #include <QTimer>
 #include <QUrlQuery>
 #include <QRandomGenerator>
@@ -177,7 +178,7 @@ void TwoGisScraper::collectHrefsStep()
         if (after == before) { ++m_idlePass; m_delay = qMin(m_delay + 300, 2000); }
         else                 { m_idlePass = 0; m_delay = 1000; }
 
-        const bool stop = (after >= 60) || (m_pass >= m_maxPass) || (m_idlePass >= 6);
+        const bool stop = (after >= 60) || (m_pass >= m_maxPass) || (m_idlePass >= 3);
 
         if (stop) {
             m_hrefQueue = QStringList(m_seen.begin(), m_seen.end());
@@ -189,6 +190,7 @@ void TwoGisScraper::collectHrefsStep()
             emit gridProgress(1, 1);
             m_totalCards = m_hrefQueue.size();
             m_doneCards = 0;
+            m_stats.queuedCards = m_totalCards;
             emit queueSized(m_totalCards);
             emit phaseChanged("Parsing 2GIS cards");
             emit parseProgress(m_totalCards, 0);
@@ -198,7 +200,24 @@ void TwoGisScraper::collectHrefsStep()
         }
 
         ++m_pass;
-        QTimer::singleShot(m_delay, this, &TwoGisScraper::collectHrefsStep);
+        const int prevCount = map.value("itemsCount").toInt();
+        m_scrollTimer.start();
+        QPointer<QWebEnginePage> wp = page;
+        auto poll = QSharedPointer<std::function<void()>>::create();
+        *poll = [this, wp, prevCount, poll]() mutable {
+            if (m_aborted || !wp) return;
+            static const QString cntJs = "document.querySelectorAll('a[href*=\"/firm/\"]').length;";
+            wp->runJavaScript(cntJs, [this, wp, prevCount, poll](const QVariant& v) {
+                const qint64 ms = m_scrollTimer.elapsed();
+                if (!wp || v.toInt() > prevCount || ms >= 1000) {
+                    qDebug() << "[2GIS] scroll→items:" << ms << "ms (prev" << prevCount << "→" << v.toInt() << ")";
+                    if (!m_aborted) collectHrefsStep();
+                } else {
+                    QTimer::singleShot(100, this, [poll]{ (*poll)(); });
+                }
+            });
+        };
+        (*poll)();
     });
 }
 
@@ -232,6 +251,8 @@ void TwoGisScraper::openCard(const QUrl& href)
 
     connect(page, &QWebEnginePage::loadFinished, this, [this, page](bool ok){
         if (!ok) {
+            qDebug() << "[2GIS] card load failed";
+            m_stats.failedCards++;
             page->deleteLater();
             QTimer::singleShot(500, this, &TwoGisScraper::processQueue);
             return;
@@ -319,7 +340,8 @@ void TwoGisScraper::openCard(const QUrl& href)
                         r.score = sc; r.why = why;
 
                         if (isBlocked(r)) {
-                            qDebug() << "[2GIS] skip" << r.name;
+                            qDebug() << "[2GIS] blocked:" << r.name;
+                            m_stats.blockedCards++;
                             page->deleteLater();
                             QTimer::singleShot(300, this, &TwoGisScraper::processQueue);
                             return;

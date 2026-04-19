@@ -2,6 +2,7 @@
 #include "captchaawarepage.h"
 #include "rules.h"
 
+#include <QPointer>
 #include <QTimer>
 #include <QRandomGenerator>
 
@@ -155,7 +156,7 @@ void GoogleMapsScraper::collectHrefsStep()
         if (after == before) { ++m_idlePass; m_delay = qMin(m_delay + 300, 2000); }
         else                 { m_idlePass = 0; m_delay = 1200; }
 
-        const bool stop = (after >= 60) || (m_pass >= m_maxPass) || (m_idlePass >= 5);
+        const bool stop = (after >= 60) || (m_pass >= m_maxPass) || (m_idlePass >= 3);
 
         if (stop) {
             m_hrefQueue = QStringList(m_seen.begin(), m_seen.end());
@@ -167,6 +168,7 @@ void GoogleMapsScraper::collectHrefsStep()
             emit gridProgress(1, 1);
             m_totalCards = m_hrefQueue.size();
             m_doneCards = 0;
+            m_stats.queuedCards = m_totalCards;
             emit queueSized(m_totalCards);
             emit phaseChanged("Parsing Google Maps cards");
             emit parseProgress(m_totalCards, 0);
@@ -176,7 +178,24 @@ void GoogleMapsScraper::collectHrefsStep()
         }
 
         ++m_pass;
-        QTimer::singleShot(m_delay, this, &GoogleMapsScraper::collectHrefsStep);
+        const int prevCount = map.value("itemsCount").toInt();
+        m_scrollTimer.start();
+        QPointer<QWebEnginePage> wp = page;
+        auto poll = QSharedPointer<std::function<void()>>::create();
+        *poll = [this, wp, prevCount, poll]() mutable {
+            if (m_aborted || !wp) return;
+            static const QString cntJs = "document.querySelectorAll('a[href*=\"/maps/place/\"]').length;";
+            wp->runJavaScript(cntJs, [this, wp, prevCount, poll](const QVariant& v) {
+                const qint64 ms = m_scrollTimer.elapsed();
+                if (!wp || v.toInt() > prevCount || ms >= 1000) {
+                    qDebug() << "[GMaps] scroll→items:" << ms << "ms (prev" << prevCount << "→" << v.toInt() << ")";
+                    if (!m_aborted) collectHrefsStep();
+                } else {
+                    QTimer::singleShot(100, this, [poll]{ (*poll)(); });
+                }
+            });
+        };
+        (*poll)();
     });
 }
 
@@ -210,6 +229,8 @@ void GoogleMapsScraper::openCard(const QUrl& href)
 
     connect(page, &QWebEnginePage::loadFinished, this, [this, page](bool ok){
         if (!ok) {
+            qDebug() << "[GMaps] card load failed";
+            m_stats.failedCards++;
             page->deleteLater();
             QTimer::singleShot(500, this, &GoogleMapsScraper::processQueue);
             return;
@@ -287,7 +308,8 @@ void GoogleMapsScraper::openCard(const QUrl& href)
                         r.score = sc; r.why = why;
 
                         if (isBlocked(r)) {
-                            qDebug() << "[GMaps] skip" << r.name;
+                            qDebug() << "[GMaps] blocked:" << r.name;
+                            m_stats.blockedCards++;
                             page->deleteLater();
                             QTimer::singleShot(300, this, &GoogleMapsScraper::processQueue);
                             return;

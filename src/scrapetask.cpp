@@ -57,18 +57,23 @@ void ScrapeTask::emitStats()
             "  \"parsing_ms\": %6,\n"
             "  \"grid_n\": %7,\n"
             "  \"grid_cells\": %8,\n"
-            "  \"card_count\": %9,\n"
-            "  \"probe_retries\": %10,\n"
-            "  \"min_card_ms\": %11,\n"
-            "  \"max_card_ms\": %12,\n"
-            "  \"avg_card_ms\": %13,\n"
-            "  \"inter_card_delay_ms\": %14\n"
+            "  \"queued_cards\": %9,\n"
+            "  \"card_count\": %10,\n"
+            "  \"failed_cards\": %11,\n"
+            "  \"blocked_cards\": %12,\n"
+            "  \"probe_retries\": %13,\n"
+            "  \"min_card_ms\": %14,\n"
+            "  \"max_card_ms\": %15,\n"
+            "  \"avg_card_ms\": %16,\n"
+            "  \"inter_card_delay_ms\": %17\n"
             "}\n"
         ).arg(m_stats.source, m_stats.query, m_stats.city)
          .arg(m_stats.collectionMs + m_stats.parsingMs)
          .arg(m_stats.collectionMs).arg(m_stats.parsingMs)
          .arg(m_stats.gridN).arg(m_stats.gridCells)
-         .arg(m_stats.cardCount).arg(m_stats.probeRetries)
+         .arg(m_stats.queuedCards).arg(m_stats.cardCount)
+         .arg(m_stats.failedCards).arg(m_stats.blockedCards)
+         .arg(m_stats.probeRetries)
          .arg(minMs).arg(m_stats.maxCardMs).arg(m_stats.avgCardMs())
          .arg(interCardMs);
         f.write(json.toUtf8());

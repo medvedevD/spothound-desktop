@@ -133,6 +133,7 @@ void YandexScraper::nextCell()
 
         m_totalCards = m_hrefQueue.size();
         m_doneCards  = 0;
+        m_stats.queuedCards = m_totalCards;
         emit queueSized(m_totalCards);
         emit phaseChanged("parsing");
         emit parseProgress(m_totalCards, m_doneCards);
@@ -190,7 +191,7 @@ void YandexScraper::openSearch() {
         }
 
         m_searchPage->runJavaScript("window.scrollBy(0,1200);", [](const QVariant&){});
-        QTimer::singleShot(800, this, &YandexScraper::collectHrefs);
+        QTimer::singleShot(500, this, &YandexScraper::collectHrefs);
     });
 
     qDebug() << "[YS] url=" << m_searchUrl;
@@ -199,13 +200,13 @@ void YandexScraper::openSearch() {
 }
 
 void YandexScraper::collectHrefs() {
-    m_seen.clear(); m_pass = 0; m_idlePass = 0; m_delay = 1100;
-    QTimer::singleShot(1500, this, &YandexScraper::collectHrefsStep);
+    m_seen.clear(); m_pass = 0; m_idlePass = 0; m_delay = 800;
+    QTimer::singleShot(700, this, &YandexScraper::collectHrefsStep);
 }
 
 void YandexScraper::waitListStable(QWebEnginePage* page, std::function<void()> cont) {
     QPointer<QWebEnginePage> p = page;
-    auto attempts = QSharedPointer<int>::create(6);
+    auto attempts = QSharedPointer<int>::create(4);
     auto last     = QSharedPointer<int>::create(-1);
 
     static const QString jsCount = R"JS(
@@ -222,7 +223,7 @@ void YandexScraper::waitListStable(QWebEnginePage* page, std::function<void()> c
             const int cur = v.toInt();
             if (cur == *last || *attempts <= 0) { cont(); return; }
             *last = cur; --(*attempts);
-            QTimer::singleShot(300, this, [poll]{ (*poll)(); });
+            QTimer::singleShot(200, this, [poll]{ (*poll)(); });
         });
     };
     (*poll)();
@@ -314,8 +315,9 @@ void YandexScraper::collectHrefsStep()
   }
 
   const itemsCount = (scope.querySelectorAll('[role="listitem"], [data-testid="search-snippet-view"]')||[]).length;
+  const orgCount = (document.querySelectorAll('a[href*="/maps/org/"]')||[]).length;
 
-  return { urls: out, hasRoot: !!root, itemsCount: itemsCount };
+  return { urls: out, hasRoot: !!root, itemsCount: itemsCount, orgCount: orgCount };
 })();
 )JS";
 
@@ -329,11 +331,11 @@ void YandexScraper::collectHrefsStep()
             for (const auto& it : arr) m_seen.insert(it.toString());
             const int after  = m_seen.size();
 
-            if (after == before) { ++m_idlePass; m_delay = qMin(m_delay + 250, 1600); }
-            else                 { m_idlePass = 0;      m_delay = 1000; }
+            if (after == before) { ++m_idlePass; m_delay = qMin(m_delay + 150, 1200); }
+            else                 { m_idlePass = 0;      m_delay = 800; }
 
             const int target = 60;
-            const bool stop = (after >= target) || (m_pass >= m_maxPass) || (m_idlePass >= 8);
+            const bool stop = (after >= target) || (m_pass >= m_maxPass) || (m_idlePass >= 3);
 
             if (stop) {
                 m_hrefQueue = QStringList(m_seen.begin(), m_seen.end());
@@ -350,12 +352,29 @@ void YandexScraper::collectHrefsStep()
                 m_doneCells++;
                 emit gridProgress(m_totalCells, m_doneCells);
                 qDebug() << "[YS] cell done, uniq now:" << m_seenGlobal.size();
-                QTimer::singleShot(500, this, &YandexScraper::nextCell);
+                QTimer::singleShot(200, this, &YandexScraper::nextCell);
                 return;
             }
 
             ++m_pass;
-            QTimer::singleShot(m_delay, this, &YandexScraper::collectHrefsStep);
+            const int prevCount = m.value("orgCount").toInt();
+            m_scrollTimer.start();
+            QPointer<QWebEnginePage> wp = page;
+            auto poll = QSharedPointer<std::function<void()>>::create();
+            *poll = [this, wp, prevCount, poll]() mutable {
+                if (m_aborted || !wp) return;
+                static const QString cntJs = "document.querySelectorAll('a[href*=\"/maps/org/\"]').length;";
+                wp->runJavaScript(cntJs, [this, wp, prevCount, poll](const QVariant& v) {
+                    const qint64 ms = m_scrollTimer.elapsed();
+                    if (!wp || v.toInt() > prevCount || ms >= 1000) {
+                        qDebug() << "[YS] scroll→items:" << ms << "ms (prev" << prevCount << "→" << v.toInt() << ")";
+                        if (!m_aborted) collectHrefsStep();
+                    } else {
+                        QTimer::singleShot(100, this, [poll]{ (*poll)(); });
+                    }
+                });
+            };
+            (*poll)();
         });
     });
 }
@@ -397,7 +416,13 @@ void YandexScraper::openCard(const QUrl& href) {
     });
 
     connect(page, &QWebEnginePage::loadFinished, this, [this, page, href](bool ok){
-        if (!ok) { page->deleteLater(); QTimer::singleShot(500, this, &YandexScraper::processQueue); return; }
+        if (!ok) {
+            qDebug() << "[YS] card load failed:" << href;
+            m_stats.failedCards++;
+            page->deleteLater();
+            QTimer::singleShot(500, this, &YandexScraper::processQueue);
+            return;
+        }
 
         auto probe = QSharedPointer<std::function<void(int)>>::create();
         *probe = [this, page, href, probe](int left){
@@ -531,7 +556,8 @@ void YandexScraper::openCard(const QUrl& href) {
                         r.score = sc; r.why = why;
 
                         if (isBlocked(r)) {
-                            qDebug() << "skip" << r.name;
+                            qDebug() << "[YS] blocked:" << r.name;
+                            m_stats.blockedCards++;
                             page->deleteLater();
                             QTimer::singleShot(300, this, &YandexScraper::processQueue);
                             return;

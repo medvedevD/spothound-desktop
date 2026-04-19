@@ -19,7 +19,10 @@ struct ScrapeStats {
     qint64 collectionMs = 0;
     qint64 parsingMs = 0;
     qint64 totalCardProcessMs = 0;
+    int queuedCards = 0;
     int cardCount = 0;
+    int failedCards = 0;
+    int blockedCards = 0;
     int probeRetries = 0;
     qint64 minCardMs = -1;
     qint64 maxCardMs = 0;
@@ -65,6 +68,7 @@ protected:
     QElapsedTimer m_collectionTimer;
     QElapsedTimer m_parsingTimer;
     QElapsedTimer m_cardTimer;
+    QElapsedTimer m_scrollTimer;
     bool m_parsingStarted = false;
 };
 
