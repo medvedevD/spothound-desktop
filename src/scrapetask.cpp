@@ -1,6 +1,5 @@
 #include "scrapetask.h"
 #include "stopwordsstore.h"
-#include "place_row_convert.h"
 
 #include <QDateTime>
 #include <QDebug>
@@ -18,7 +17,12 @@ ScrapeTask::ScrapeTask(QString query, QString city,
     , m_city(std::move(city))
     , m_profile(profile)
     , m_stopWordsStore(stopWordsStore)
-    , m_scoreKeywords(std::move(scoreKeywords))
+    , m_scoreKeywords([&]{
+        std::vector<std::string> v;
+        v.reserve(static_cast<size_t>(scoreKeywords.size()));
+        for (const auto& k : scoreKeywords) v.push_back(k.toStdString());
+        return v;
+    }())
 {
     connect(this, &ScrapeTask::phaseChanged, this, [this](const QString& phase) {
         if (m_eventCallback) m_eventCallback(core::PhaseChangedEvent{phase.toStdString()});
@@ -32,8 +36,8 @@ ScrapeTask::ScrapeTask(QString query, QString city,
     connect(this, &ScrapeTask::parseProgress, this, [this](int total, int done) {
         if (m_eventCallback) m_eventCallback(core::ParseProgressEvent{total, done});
     });
-    connect(this, &ScrapeTask::result, this, [this](PlaceRow row) {
-        if (m_eventCallback) m_eventCallback(core::ResultEvent{toCore(row)});
+    connect(this, &ScrapeTask::result, this, [this](core::PlaceRow row) {
+        if (m_eventCallback) m_eventCallback(core::ResultEvent{std::move(row)});
     });
     connect(this, &ScrapeTask::finishedAll, this, [this]() {
         if (m_eventCallback) m_eventCallback(core::FinishedAllEvent{});
@@ -46,7 +50,7 @@ ScrapeTask::ScrapeTask(QString query, QString city,
     });
 }
 
-bool ScrapeTask::isBlocked(const PlaceRow& r) const
+bool ScrapeTask::isBlocked(const core::PlaceRow& r) const
 {
     return m_stopWordsStore && m_stopWordsStore->matchesRow(r);
 }

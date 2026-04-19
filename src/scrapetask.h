@@ -1,12 +1,15 @@
 #ifndef SCRAPETASK_H
 #define SCRAPETASK_H
 
-#include "placerow.h"
+#include "core/place_row.h"
 #include "core/i_scraper.h"
 
 #include <QElapsedTimer>
 #include <QObject>
 #include <QStringList>
+
+#include <string>
+#include <vector>
 
 class QWebEnginePage;
 class QWebEngineProfile;
@@ -49,7 +52,7 @@ public:
     // setEventCallback() and m_eventCallback inherited from core::IScraper
 
 signals:
-    void result(PlaceRow row);
+    void result(core::PlaceRow row);
     void finished();
     void captchaRequested(QWebEnginePage* page);
     void preview(QWebEnginePage* page, const QString& title);
@@ -61,14 +64,14 @@ signals:
     void finishedAll();
 
 protected:
-    bool isBlocked(const PlaceRow& r) const;
+    bool isBlocked(const core::PlaceRow& r) const;
     void emitStats();
 
     QString m_query;
     QString m_city;
     QWebEngineProfile* m_profile = nullptr;
     StopWordsStore* m_stopWordsStore = nullptr;
-    QStringList m_scoreKeywords;
+    std::vector<std::string> m_scoreKeywords;
 
     ScrapeStats m_stats;
     QElapsedTimer m_collectionTimer;

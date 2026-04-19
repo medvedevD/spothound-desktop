@@ -25,11 +25,8 @@ set(PROJECT_SOURCES
         src/mainwindow.ui
         src/scrapetask.h
         src/scrapetask.cpp
-        src/rules.h
-        src/rules.cpp
         src/yandexscraper.h
         src/yandexscraper.cpp
-        src/placerow.h
         src/placesmodel.h
         src/placesmodel.cpp
         src/loggingpage.h
@@ -41,8 +38,6 @@ set(PROJECT_SOURCES
         src/stopwordsdialog.h
         src/stopwordsdialog.cpp
         src/stopwordsdialog.ui
-        src/cityregistry.h
-        src/cityregistry.cpp
         src/twogisscraper.h
         src/twogisscraper.cpp
         src/googlemapsscraper.h

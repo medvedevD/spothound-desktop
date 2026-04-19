@@ -2,7 +2,6 @@
 
 #include <QFile>
 #include <QTextStream>
-#include <QUrl>
 
 StopWordsStore::StopWordsStore(const QString& p, QObject* parent)
     : QObject(parent), m_path(p)
@@ -60,18 +59,7 @@ bool StopWordsStore::matches(const QString& text) const
     return m_filter.matches(text.toStdString());
 }
 
-bool StopWordsStore::matchesRow(const PlaceRow& r) const
+bool StopWordsStore::matchesRow(const core::PlaceRow& r) const
 {
-    const std::string blob =
-        (r.name + " " + r.descr + " " + r.address + " " + r.site).toStdString();
-    if (m_filter.matches(blob)) return true;
-
-    std::string hosts;
-    const auto parts = r.site.split(',', Qt::SkipEmptyParts);
-    for (const QString& part : parts) {
-        const QUrl u(part.trimmed());
-        const std::string h = u.host().toStdString();
-        if (!h.empty()) { hosts += ' '; hosts += h; }
-    }
-    return m_filter.matches(hosts);
+    return m_filter.matchesPlace(r);
 }

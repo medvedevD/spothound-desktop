@@ -1,8 +1,7 @@
 #include "yandexscraper.h"
-#include "cityregistry.h"
-#include "loggingpage.h"
+#include "core/city_registry.h"
 #include "captchaawarepage.h"
-#include "rules.h"
+#include "core/rules.h"
 
 #include <QPointer>
 #include <QRegularExpression>
@@ -102,7 +101,7 @@ void YandexScraper::reset()
 }
 
 void YandexScraper::buildCells() {
-    const CityGeo* c = CityRegistry::find(m_city);
+    const core::CityGeo* c = core::CityRegistry::find(m_city.toStdString());
     double lon0, lon1, lat0, lat1;
     if (c) {
         lon0 = c->bboxLon0; lon1 = c->bboxLon1;
@@ -144,7 +143,7 @@ void YandexScraper::nextCell()
 
     qDebug() << QString("%1/%2").arg(m_cellIdx).arg(m_cells.size());
 
-    const CityGeo* c = CityRegistry::find(m_city);
+    const core::CityGeo* c = core::CityRegistry::find(m_city.toStdString());
     const QString slug = c ? QString::fromUtf8(c->yandexSlug) : QStringLiteral("moscow");
     const int rid = c ? c->yandexRid : 213;
 
@@ -544,19 +543,19 @@ void YandexScraper::openCard(const QUrl& href) {
                         for (int i=0;i<phones.size();++i) phones[i] = fmt(phones[i]);
                         phones.removeDuplicates();
 
-                        PlaceRow r;
+                        core::PlaceRow r;
                         r.source  = "Яндекс.Карты";
-                        r.query   = m_query + " " + m_city;
-                        r.name    = m.value("name").toString();
-                        r.address = m.value("addr").toString();
-                        r.phone   = phones.join(" | ");
-                        r.site    = sites.join(", ");
-                        r.descr   = m.value("descr").toString();
-                        auto [sc, why] = Rules::score(r.name, r.descr, !r.site.isEmpty(), m_scoreKeywords);
-                        r.score = sc; r.why = why;
+                        r.query   = (m_query + " " + m_city).toStdString();
+                        r.name    = m.value("name").toString().toStdString();
+                        r.address = m.value("addr").toString().toStdString();
+                        r.phone   = phones.join(" | ").toStdString();
+                        r.site    = sites.join(", ").toStdString();
+                        r.descr   = m.value("descr").toString().toStdString();
+                        auto [sc, why] = core::Rules::score(r.name, r.descr, !r.site.empty(), m_scoreKeywords);
+                        r.score = sc; r.why = std::move(why);
 
                         if (isBlocked(r)) {
-                            qDebug() << "[YS] blocked:" << r.name;
+                            qDebug() << "[YS] blocked:" << QString::fromStdString(r.name);
                             m_stats.blockedCards++;
                             page->deleteLater();
                             QTimer::singleShot(300, this, &YandexScraper::processQueue);

@@ -1,6 +1,5 @@
 #include "placesmodel.h"
 #include "core/csv_export.h"
-#include "place_row_convert.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -78,9 +77,9 @@ Qt::ItemFlags PlacesModel::flags(const QModelIndex &index) const
     return QAbstractTableModel::flags(index) | Qt::ItemIsEnabled | Qt::ItemIsSelectable;
 }
 
-void PlacesModel::addRow(const PlaceRow& row) {
+void PlacesModel::addRow(core::PlaceRow row) {
     beginInsertRows(QModelIndex(), static_cast<int>(m_rows.size()), static_cast<int>(m_rows.size()));
-    m_rows.push_back(toCore(row));
+    m_rows.push_back(std::move(row));
     endInsertRows();
 }
 

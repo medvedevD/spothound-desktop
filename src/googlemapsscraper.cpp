@@ -1,6 +1,6 @@
 #include "googlemapsscraper.h"
 #include "captchaawarepage.h"
-#include "rules.h"
+#include "core/rules.h"
 
 #include <QPointer>
 #include <QTimer>
@@ -296,19 +296,19 @@ void GoogleMapsScraper::openCard(const QUrl& href)
                     page->runJavaScript(js, [this, page](const QVariant& v){
                         const auto m = v.toMap();
 
-                        PlaceRow r;
+                        core::PlaceRow r;
                         r.source  = "Google Maps";
-                        r.query   = m_query + " " + m_city;
-                        r.name    = m.value("name").toString();
-                        r.address = m.value("addr").toString();
-                        r.phone   = m.value("phone").toString();
-                        r.site    = m.value("website").toString();
-                        r.descr   = m.value("descr").toString();
-                        auto [sc, why] = Rules::score(r.name, r.descr, !r.site.isEmpty(), m_scoreKeywords);
-                        r.score = sc; r.why = why;
+                        r.query   = (m_query + " " + m_city).toStdString();
+                        r.name    = m.value("name").toString().toStdString();
+                        r.address = m.value("addr").toString().toStdString();
+                        r.phone   = m.value("phone").toString().toStdString();
+                        r.site    = m.value("website").toString().toStdString();
+                        r.descr   = m.value("descr").toString().toStdString();
+                        auto [sc, why] = core::Rules::score(r.name, r.descr, !r.site.empty(), m_scoreKeywords);
+                        r.score = sc; r.why = std::move(why);
 
                         if (isBlocked(r)) {
-                            qDebug() << "[GMaps] blocked:" << r.name;
+                            qDebug() << "[GMaps] blocked:" << QString::fromStdString(r.name);
                             m_stats.blockedCards++;
                             page->deleteLater();
                             QTimer::singleShot(300, this, &GoogleMapsScraper::processQueue);

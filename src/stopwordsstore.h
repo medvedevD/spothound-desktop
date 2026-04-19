@@ -1,7 +1,7 @@
 #ifndef STOPWORDSSTORE_H
 #define STOPWORDSSTORE_H
 
-#include "placerow.h"
+#include "core/place_row.h"
 #include "core/stop_words_filter.h"
 
 #include <QObject>
@@ -17,7 +17,7 @@ public:
     bool load();
     bool save() const;
     bool matches(const QString& text) const;
-    bool matchesRow(const PlaceRow& r) const;
+    bool matchesRow(const core::PlaceRow& r) const;
 
 signals:
     void changed();

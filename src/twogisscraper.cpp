@@ -1,7 +1,7 @@
 #include "twogisscraper.h"
-#include "cityregistry.h"
+#include "core/city_registry.h"
 #include "captchaawarepage.h"
-#include "rules.h"
+#include "core/rules.h"
 
 #include <QPointer>
 #include <QTimer>
@@ -41,7 +41,7 @@ void TwoGisScraper::start()
     emit phaseChanged("Collecting from 2GIS");
     emit gridProgress(1, 0);
 
-    const CityGeo* c = CityRegistry::find(m_city);
+    const core::CityGeo* c = core::CityRegistry::find(m_city.toStdString());
     const QString slug = c ? QString::fromUtf8(c->twoGisSlug) : m_city.trimmed().toLower().replace(' ', '_');
 
     QUrl u;
@@ -318,29 +318,29 @@ void TwoGisScraper::openCard(const QUrl& href)
                     page->runJavaScript(js, [this, page](const QVariant& v){
                         const auto m = v.toMap();
 
-                        PlaceRow r;
+                        core::PlaceRow r;
                         r.source  = "2ГИС";
-                        r.query   = m_query + " " + m_city;
-                        r.name    = m.value("name").toString();
-                        r.address = m.value("addr").toString();
-                        r.descr   = m.value("descr").toString();
+                        r.query   = (m_query + " " + m_city).toStdString();
+                        r.name    = m.value("name").toString().toStdString();
+                        r.address = m.value("addr").toString().toStdString();
+                        r.descr   = m.value("descr").toString().toStdString();
 
                         QStringList phones;
                         for (const auto& it : m.value("tels").toList())
                             phones << it.toString();
                         phones.removeDuplicates();
-                        r.phone = phones.join(" | ");
+                        r.phone = phones.join(" | ").toStdString();
 
                         QStringList sites;
                         for (const auto& it : m.value("sites").toList())
                             sites << it.toString();
-                        r.site = sites.join(", ");
+                        r.site = sites.join(", ").toStdString();
 
-                        auto [sc, why] = Rules::score(r.name, r.descr, !r.site.isEmpty(), m_scoreKeywords);
-                        r.score = sc; r.why = why;
+                        auto [sc, why] = core::Rules::score(r.name, r.descr, !r.site.empty(), m_scoreKeywords);
+                        r.score = sc; r.why = std::move(why);
 
                         if (isBlocked(r)) {
-                            qDebug() << "[2GIS] blocked:" << r.name;
+                            qDebug() << "[2GIS] blocked:" << QString::fromStdString(r.name);
                             m_stats.blockedCards++;
                             page->deleteLater();
                             QTimer::singleShot(300, this, &TwoGisScraper::processQueue);

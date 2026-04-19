@@ -57,3 +57,63 @@ TEST(StopWordsFilter, SetWordsReplaces) {
     EXPECT_FALSE(f.matches("хорошее кафе"));
     EXPECT_TRUE(f.matches("хороший бар"));
 }
+
+TEST(StopWordsFilter, MatchesPlaceOnName) {
+    core::StopWordsFilter f;
+    f.setWords({"кафе"});
+    core::PlaceRow r;
+    r.name = "Лучшее кафе";
+    EXPECT_TRUE(f.matchesPlace(r));
+}
+
+TEST(StopWordsFilter, MatchesPlaceOnDescription) {
+    core::StopWordsFilter f;
+    f.setWords({"бар"});
+    core::PlaceRow r;
+    r.descr = "Уютный бар для встреч";
+    EXPECT_TRUE(f.matchesPlace(r));
+}
+
+TEST(StopWordsFilter, MatchesPlaceNoStopWord) {
+    core::StopWordsFilter f;
+    f.setWords({"кафе"});
+    core::PlaceRow r;
+    r.name = "Парикмахерская";
+    r.descr = "Стрижка и укладка";
+    EXPECT_FALSE(f.matchesPlace(r));
+}
+
+TEST(StopWordsFilter, MatchesPlaceOnHostname) {
+    core::StopWordsFilter f;
+    f.setWords({"example"});
+    core::PlaceRow r;
+    r.name = "Название";
+    r.site = "https://example.com/page";
+    EXPECT_TRUE(f.matchesPlace(r));
+}
+
+TEST(StopWordsFilter, MatchesPlaceMultipleHostnames) {
+    core::StopWordsFilter f;
+    f.setWords({"blocked"});
+    core::PlaceRow r;
+    r.site = "https://ok.com/, https://blocked.ru/x";
+    EXPECT_TRUE(f.matchesPlace(r));
+}
+
+TEST(StopWordsFilter, MatchesPlaceBareHostNotExtracted) {
+    // Matches previous QUrl behavior: bare hostnames without scheme are not
+    // extracted as hosts, but the bare string still appears in the text blob.
+    core::StopWordsFilter f;
+    f.setWords({"example"});
+    core::PlaceRow r;
+    r.site = "example.com";
+    EXPECT_TRUE(f.matchesPlace(r));
+}
+
+TEST(StopWordsFilter, MatchesPlaceStripsPortAndUserInfo) {
+    core::StopWordsFilter f;
+    f.setWords({"host"});
+    core::PlaceRow r;
+    r.site = "https://user:pass@host.com:8080/path";
+    EXPECT_TRUE(f.matchesPlace(r));
+}

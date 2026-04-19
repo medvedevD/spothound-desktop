@@ -1,7 +1,7 @@
 #ifndef PLACESMODEL_H
 #define PLACESMODEL_H
 
-#include "placerow.h"
+#include "core/place_row.h"
 #include "core/place_row_json.h"
 
 #include <QAbstractTableModel>
@@ -22,7 +22,7 @@ public:
 
     Qt::ItemFlags flags(const QModelIndex &index) const override;
 
-    void addRow(const PlaceRow& row);
+    void addRow(core::PlaceRow row);
     void exportCsv(const QString& path) const;
     bool exportXlsx(const QString &path) const;
     void clear();

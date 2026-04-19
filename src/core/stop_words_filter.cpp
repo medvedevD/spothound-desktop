@@ -27,6 +27,34 @@ bool matchesWordBoundary(const std::string& text, const std::string& word)
     return false;
 }
 
+std::string trim(const std::string& s)
+{
+    const auto start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return {};
+    const auto end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+}
+
+// Extracts the hostname from a URL with explicit scheme (e.g. "https://example.com/x").
+// Returns empty string for bare hostnames or strings without "://" — matching the
+// previous QUrl-based behavior which required a scheme to populate host().
+std::string extractUrlHost(const std::string& raw)
+{
+    const std::string t = trim(raw);
+    const auto schemeEnd = t.find("://");
+    if (schemeEnd == std::string::npos) return {};
+    const auto hostStart = schemeEnd + 3;
+    auto hostEnd = t.find_first_of("/?#", hostStart);
+    if (hostEnd == std::string::npos) hostEnd = t.size();
+    std::string host = t.substr(hostStart, hostEnd - hostStart);
+
+    if (const auto at = host.find('@'); at != std::string::npos)
+        host = host.substr(at + 1);
+    if (const auto colon = host.find(':'); colon != std::string::npos)
+        host = host.substr(0, colon);
+    return host;
+}
+
 } // namespace
 
 void core::StopWordsFilter::setWords(std::vector<std::string> words)
@@ -50,4 +78,21 @@ bool core::StopWordsFilter::matches(const std::string& text) const
         if (!w.empty() && matchesWordBoundary(norm, w)) return true;
     }
     return false;
+}
+
+bool core::StopWordsFilter::matchesPlace(const core::PlaceRow& r) const
+{
+    const std::string blob = r.name + " " + r.descr + " " + r.address + " " + r.site;
+    if (matches(blob)) return true;
+
+    std::string hosts;
+    size_t start = 0;
+    while (start <= r.site.size()) {
+        auto comma = r.site.find(',', start);
+        if (comma == std::string::npos) comma = r.site.size();
+        const std::string host = extractUrlHost(r.site.substr(start, comma - start));
+        if (!host.empty()) { hosts += ' '; hosts += host; }
+        start = comma + 1;
+    }
+    return matches(hosts);
 }
