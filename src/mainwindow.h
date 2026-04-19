@@ -43,6 +43,7 @@ StopWordsStore *m_stopStore = nullptr;
 
     QLabel* m_phaseLbl = nullptr;
     QProgressBar* m_progress = nullptr;
+    QProgressBar* m_loadBar = nullptr;
 };
 
 #endif // MAINWINDOW_H

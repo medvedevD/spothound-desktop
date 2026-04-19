@@ -58,8 +58,32 @@ MainWindow::MainWindow(QWidget *parent)
 
     auto* browserLayout = new QVBoxLayout(ui->browserContainer);
     browserLayout->setContentsMargins(0, 0, 0, 0);
+    browserLayout->setSpacing(0);
+
+    m_loadBar = new QProgressBar(ui->browserContainer);
+    m_loadBar->setRange(0, 100);
+    m_loadBar->setValue(0);
+    m_loadBar->setTextVisible(false);
+    m_loadBar->setFixedHeight(3);
+    m_loadBar->setStyleSheet(
+        "QProgressBar { background: transparent; border: none; }"
+        "QProgressBar::chunk { background: #5b9bd5; }");
+    m_loadBar->setVisible(false);
+    browserLayout->addWidget(m_loadBar);
+
     m_view = new QWebEngineView(ui->browserContainer);
+    m_view->page()->setBackgroundColor(QColor("#1e1e1e"));
     browserLayout->addWidget(m_view);
+
+    connect(m_view, &QWebEngineView::loadStarted, this, [this] {
+        m_loadBar->setValue(0);
+        m_loadBar->setVisible(true);
+    });
+    connect(m_view, &QWebEngineView::loadProgress, m_loadBar, &QProgressBar::setValue);
+    connect(m_view, &QWebEngineView::loadFinished, this, [this] {
+        m_loadBar->setVisible(false);
+    });
+
     ui->browserContainer->hide();
 
     auto updateGridLabel = [this](int n) {
@@ -272,6 +296,17 @@ void MainWindow::onStart()
         if (m_currentScraper == scraper) m_currentScraper = nullptr;
         scraper->deleteLater();
     });
+
+    m_view->setHtml(R"(<!DOCTYPE html><html><head><style>
+body{margin:0;display:flex;align-items:center;justify-content:center;
+     height:100vh;background:#1e1e1e;font-family:sans-serif;color:#999;}
+.spinner{width:32px;height:32px;border:3px solid #333;border-top-color:#5b9bd5;
+         border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:12px;}
+</style></head><body>
+<div class="wrap"><div class="spinner"></div><span>Инициализация...</span></div>
+</body></html>)");
 
     scraper->start();
 }

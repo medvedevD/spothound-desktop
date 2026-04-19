@@ -2,6 +2,7 @@
 #define CAPTCHAAWAREPAGE_H
 
 #include <QWebEnginePage>
+#include <QColor>
 #include <functional>
 
 class CaptchaAwarePage : public QWebEnginePage {
@@ -14,7 +15,9 @@ public:
                                QObject* parent = nullptr)
         : QWebEnginePage(profile, parent)
         , m_pred(std::move(pred))
-    {}
+    {
+        setBackgroundColor(QColor("#1e1e1e"));
+    }
 
 signals:
     void captchaNeeded(const QUrl&);
