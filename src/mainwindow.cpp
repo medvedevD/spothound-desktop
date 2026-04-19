@@ -1,11 +1,11 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "hintlistwidget.h"
 
 #include "scrapetask.h"
 #include "yandexscraper.h"
 #include "twogisscraper.h"
 #include "googlemapsscraper.h"
-#include "stopwordsdialog.h"
 
 #include <QWebEngineProfile>
 #include <QStandardPaths>
@@ -13,6 +13,7 @@
 #include <QGuiApplication>
 #include <QClipboard>
 #include <QFileDialog>
+#include <QKeyEvent>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -20,9 +21,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    ui->searchRequest->addAction(QIcon::fromTheme(QStringLiteral("edit-find")), QLineEdit::LeadingPosition);
-
-    m_phaseLbl = new QLabel("Click the 'start' button to start parsing", this);
+    m_phaseLbl = new QLabel(this);
     m_progress = new QProgressBar(this);
     m_progress->setMinimumWidth(320);
     m_progress->setTextVisible(true);
@@ -53,8 +52,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_profile->setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36");
     m_profile->setHttpAcceptLanguage("ru-RU,ru;q=0.9,en-US;q=0.7");
 
-    // Yandex cookies set up once — YandexScraper::setupProfile is called in its constructor,
-    // but we also call it here so the profile is ready even before the first scraper is created.
     YandexScraper::setupProfile(m_profile);
 
     m_view = new QWebEngineView(nullptr);
@@ -64,19 +61,84 @@ MainWindow::MainWindow(QWidget *parent)
     m_view->resize(1100, 800);
     m_view->hide();
 
-    connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
+    auto updateGridLabel = [this](int n) {
+        ui->gridLabel->setText(QString("Сетка %1×%1:").arg(n));
+    };
+    connect(ui->gridSize, qOverload<int>(&QSpinBox::valueChanged), this, updateGridLabel);
+    updateGridLabel(ui->gridSize->value());
 
+    // Keywords list
+    ui->keywordsList->setHint("Нет ключевых слов");
+    ui->keywordsList->installEventFilter(this);
+
+    auto addKeyword = [this] {
+        const QString word = ui->keywordInput->text().trimmed();
+        if (word.isEmpty()) return;
+        for (int i = 0; i < ui->keywordsList->count(); ++i)
+            if (ui->keywordsList->item(i)->text().compare(word, Qt::CaseInsensitive) == 0) {
+                ui->keywordInput->clear();
+                return;
+            }
+        ui->keywordsList->addItem(word);
+        ui->keywordInput->clear();
+    };
+    connect(ui->btnAddKeyword, &QPushButton::clicked, this, addKeyword);
+    connect(ui->keywordInput, &QLineEdit::returnPressed, this, addKeyword);
+    connect(ui->btnRemoveKeyword, &QPushButton::clicked, this, [this] {
+        delete ui->keywordsList->currentItem();
+    });
+
+    // Stop words list
     auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(path);
     m_stopStore = new StopWordsStore(path + "/stopwords.txt", this);
 
-    connect(ui->btnStopWords, &QPushButton::clicked, this, [this]{
-        StopWordsDialog dlg(m_stopStore, this);
-        dlg.exec();
+    ui->stopWordsList->setHint("Нет стоп-слов");
+    ui->stopWordsList->installEventFilter(this);
+
+    auto reloadStopWords = [this] {
+        ui->stopWordsList->clear();
+        for (const QString& w : m_stopStore->list())
+            ui->stopWordsList->addItem(w);
+    };
+    reloadStopWords();
+
+    auto addStopWord = [this] {
+        const QString word = ui->stopWordInput->text().trimmed();
+        if (word.isEmpty()) return;
+        QStringList words = m_stopStore->list();
+        if (words.contains(word, Qt::CaseInsensitive)) { ui->stopWordInput->clear(); return; }
+        words << word;
+        m_stopStore->setList(words);
+        ui->stopWordsList->addItem(word);
+        ui->stopWordInput->clear();
+    };
+    connect(ui->btnAddStopWord, &QPushButton::clicked, this, addStopWord);
+    connect(ui->stopWordInput, &QLineEdit::returnPressed, this, addStopWord);
+    connect(ui->btnRemoveStopWord, &QPushButton::clicked, this, [this] {
+        const int row = ui->stopWordsList->currentRow();
+        if (row < 0) return;
+        QStringList words = m_stopStore->list();
+        words.removeAt(row);
+        m_stopStore->setList(words);
+        delete ui->stopWordsList->currentItem();
+    });
+
+    connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
+
+    connect(ui->btnNewSearch, &QPushButton::clicked, this, [this] {
+        if (m_currentScraper) m_currentScraper->reset();
+        m_model->clear();
+        m_phaseLbl->setText(QString());
+        m_progress->setRange(0, 1);
+        m_progress->setValue(0);
+        m_progress->setFormat(QString());
+        if (m_view) m_view->hide();
+        ui->stackedWidget->setCurrentIndex(0);
     });
 
     connect(ui->exportXlsx, &QPushButton::clicked, this, [this]{
-        const QString fn = QFileDialog::getSaveFileName(this, "Export to Excel",
+        const QString fn = QFileDialog::getSaveFileName(this, "Экспорт в Excel",
                              "results.xlsx", "Excel (*.xlsx)");
         if (fn.isEmpty()) return;
         m_model->exportXlsx(fn);
@@ -85,17 +147,43 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnClear, &QPushButton::clicked, this, [this]{
         if (m_currentScraper) m_currentScraper->reset();
         m_model->clear();
-        m_phaseLbl->setText("Click the 'start' button to start parsing");
-        m_progress->setRange(0,1);
+        m_phaseLbl->setText(QString());
+        m_progress->setRange(0, 1);
         m_progress->setValue(0);
         m_progress->setFormat(QString());
         if (m_view) m_view->hide();
     });
+
+    ui->stackedWidget->setCurrentIndex(0);
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+bool MainWindow::eventFilter(QObject* obj, QEvent* e)
+{
+    if (e->type() == QEvent::KeyPress) {
+        auto* ke = static_cast<QKeyEvent*>(e);
+        if (ke->key() == Qt::Key_Delete || ke->key() == Qt::Key_Backspace) {
+            if (obj == ui->keywordsList) {
+                delete ui->keywordsList->currentItem();
+                return true;
+            }
+            if (obj == ui->stopWordsList) {
+                const int row = ui->stopWordsList->currentRow();
+                if (row >= 0) {
+                    QStringList words = m_stopStore->list();
+                    words.removeAt(row);
+                    m_stopStore->setList(words);
+                    delete ui->stopWordsList->currentItem();
+                }
+                return true;
+            }
+        }
+    }
+    return QMainWindow::eventFilter(obj, e);
 }
 
 void MainWindow::onStart()
@@ -107,16 +195,15 @@ void MainWindow::onStart()
     if (query.isEmpty()) return;
 
     QStringList keywords;
-    for (const QString& kw : ui->scoreKeywords->text().split(',', Qt::SkipEmptyParts))
-        keywords << kw.trimmed();
+    for (int i = 0; i < ui->keywordsList->count(); ++i)
+        keywords << ui->keywordsList->item(i)->text();
 
-    // Stop any running scraper
     if (m_currentScraper) m_currentScraper->reset();
 
     ScrapeTask* scraper = nullptr;
     const int source = ui->sourceCombo->currentIndex();
     switch (source) {
-    case 0: scraper = new YandexScraper(query, city, m_profile, m_stopStore, keywords, this); break;
+    case 0: scraper = new YandexScraper(query, city, m_profile, m_stopStore, keywords, ui->gridSize->value(), this); break;
     case 1: scraper = new TwoGisScraper(query, city, m_profile, m_stopStore, keywords, this); break;
     case 2: scraper = new GoogleMapsScraper(query, city, m_profile, m_stopStore, keywords, this); break;
     default: return;
@@ -124,10 +211,14 @@ void MainWindow::onStart()
 
     m_currentScraper = scraper;
 
+    const QStringList sourceNames = {"Яндекс.Карты", "2ГИС", "Google Maps"};
+    QString summary = sourceNames.value(source) + " · " + city + " · " + query;
+    if (!keywords.isEmpty()) summary += " · " + keywords.join(", ");
+    ui->searchSummaryLabel->setText(summary);
+
+    ui->stackedWidget->setCurrentIndex(1);
+
     connect(scraper, &ScrapeTask::captchaRequested, this, [this](QWebEnginePage* page){
-        connect(page, &QWebEnginePage::urlChanged, this, [this](const QUrl&){
-            // hide preview when captcha is solved (URL changes away from captcha page)
-        });
         m_view->setPage(page);
         m_view->show();
         m_view->raise();
@@ -150,23 +241,23 @@ void MainWindow::onStart()
     connect(scraper, &ScrapeTask::gridProgress, this, [this](int total, int done){
         m_progress->setRange(0, qMax(1, total));
         m_progress->setValue(done);
-        m_progress->setFormat(QString("Zones: %1/%2 (%p%)").arg(done).arg(total));
+        m_progress->setFormat(QString("Зоны: %1/%2 (%p%)").arg(done).arg(total));
     });
 
     connect(scraper, &ScrapeTask::queueSized, this, [this](int total){
         m_progress->setRange(0, qMax(1, total));
         m_progress->setValue(0);
-        m_progress->setFormat(QString("Cards: 0/%1 (0%)").arg(total));
+        m_progress->setFormat(QString("Карточки: 0/%1 (0%)").arg(total));
     });
 
     connect(scraper, &ScrapeTask::parseProgress, this, [this](int total, int done){
         m_progress->setRange(0, qMax(1, total));
         m_progress->setValue(done);
-        m_progress->setFormat(QString("Cards: %1/%2 (%p%)").arg(done).arg(total));
+        m_progress->setFormat(QString("Карточки: %1/%2 (%p%)").arg(done).arg(total));
     });
 
     connect(scraper, &ScrapeTask::finishedAll, this, [this]{
-        m_phaseLbl->setText("Done");
+        m_phaseLbl->setText("Готово");
         m_progress->setFormat(QString());
         m_progress->setValue(m_progress->maximum());
     });
@@ -186,10 +277,10 @@ void MainWindow::onTableContextMenu(const QPoint& pos) {
     if (!idx.isValid()) return;
 
     QMenu m(this);
-    QAction* aCell = m.addAction("Copy cell");
-    QAction* aRow  = m.addAction("Copy line");
-    QAction* aCol  = m.addAction("Copy column");
-    QAction* aDel  = m.addAction("Delete line");
+    QAction* aCell = m.addAction("Копировать ячейку");
+    QAction* aRow  = m.addAction("Копировать строку");
+    QAction* aCol  = m.addAction("Копировать столбец");
+    QAction* aDel  = m.addAction("Удалить строку");
 
     QAction* act = m.exec(tv->viewport()->mapToGlobal(pos));
     if (!act) return;

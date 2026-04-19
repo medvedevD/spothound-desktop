@@ -22,33 +22,14 @@ static inline bool isCaptchaUrl(const QUrl& u) {
 
 static inline bool isCom(const QUrl& u){ return u.host().endsWith("yandex.com"); }
 
-static void attachRegionLock(QWebEnginePage* page, const QUrl& fallbackRu) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    QObject::connect(page, &QWebEnginePage::navigationRequested,
-        page, [page, fallbackRu](QWebEngineNavigationRequest &req){
-            if (isCom(req.url())) {
-                req.reject();
-                QUrl ru = req.url(); ru.setHost("yandex.ru");
-                if (ru.scheme().isEmpty()) ru = fallbackRu;
-                page->load(ru);
-            }
-        });
-#endif
-    QObject::connect(page, &QWebEnginePage::urlChanged,
-        page, [page, fallbackRu](const QUrl& u){
-            if (isCom(u)) {
-                QUrl ru = u; ru.setHost("yandex.ru");
-                page->load(ru.isValid()? ru : fallbackRu);
-            }
-        });
-}
-
 YandexScraper::YandexScraper(QString query, QString city,
                              QWebEngineProfile* profile,
                              StopWordsStore* stopWordsStore,
                              QStringList scoreKeywords,
+                             int gridN,
                              QObject* p)
     : ScrapeTask(std::move(query), std::move(city), profile, stopWordsStore, std::move(scoreKeywords), p)
+    , m_gridN(qBound(2, gridN, 10))
 {
     setupProfile(m_profile);
 }
@@ -72,6 +53,7 @@ void YandexScraper::setupProfile(QWebEngineProfile* profile)
 void YandexScraper::start()
 {
     m_aborted = false;
+    m_forcedRu = false;
 
     m_seen.clear();
     m_seenGlobal.clear();
@@ -91,6 +73,7 @@ void YandexScraper::start()
 void YandexScraper::reset()
 {
     m_aborted = true;
+    m_forcedRu = false;
 
     if (m_searchPage) { m_searchPage->deleteLater(); m_searchPage = nullptr; }
 
@@ -121,7 +104,7 @@ void YandexScraper::buildCells() {
         lat0 = 55.55; lat1 = 55.95;
         m_cellZoom = 14;
     }
-    const int nx = 5, ny = 5;
+    const int nx = m_gridN, ny = m_gridN;
     for (int iy = 0; iy < ny; ++iy) {
         for (int ix = 0; ix < nx; ++ix) {
             double lon = lon0 + (lon1 - lon0) * (ix + 0.5) / nx;
@@ -398,7 +381,7 @@ void YandexScraper::openCard(const QUrl& href) {
     connect(page, &QWebEnginePage::loadFinished, this, [this, page, href](bool ok){
         if (!ok) { page->deleteLater(); QTimer::singleShot(500, this, &YandexScraper::processQueue); return; }
 
-        auto probe = new std::function<void(int)>;
+        auto probe = QSharedPointer<std::function<void(int)>>::create();
         *probe = [this, page, href, probe](int left){
             static const QString readyJS = R"JS(
               (function(){

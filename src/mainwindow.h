@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QMainWindow>
 #include <QProgressBar>
+#include <QSpinBox>
 #include <QWebEngineView>
 
 QT_BEGIN_NAMESPACE
@@ -22,6 +23,9 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* e) override;
 
 private:
     void onStart();
