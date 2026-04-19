@@ -1,4 +1,6 @@
 #include "placesmodel.h"
+#include "core/csv_export.h"
+#include "place_row_convert.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -11,7 +13,7 @@
 PlacesModel::PlacesModel(QObject* parent) : QAbstractTableModel(parent) {}
 
 int PlacesModel::rowCount(const QModelIndex&) const {
-    return m_rows.size();
+    return static_cast<int>(m_rows.size());
 }
 
 int PlacesModel::columnCount(const QModelIndex&) const {
@@ -22,17 +24,17 @@ QVariant PlacesModel::data(const QModelIndex& index, int role) const {
     if (!index.isValid() || role != Qt::DisplayRole)
         return {};
 
-    const PlaceRow& r = m_rows.at(index.row());
+    const core::PlaceRow& r = m_rows.at(static_cast<size_t>(index.row()));
     switch (index.column()) {
-    case Source:     return r.source;
-    case Query:      return r.query;
-    case Name:       return r.name;
-    case Address:    return r.address;
-    case Phone:      return r.phone;
-    case Site:       return r.site;
-    case Score:      return r.score;
-    case Why:        return r.why;
-    case Description:return r.descr;
+    case Source:      return QString::fromStdString(r.source);
+    case Query:       return QString::fromStdString(r.query);
+    case Name:        return QString::fromStdString(r.name);
+    case Address:     return QString::fromStdString(r.address);
+    case Phone:       return QString::fromStdString(r.phone);
+    case Site:        return QString::fromStdString(r.site);
+    case Score:       return r.score;
+    case Why:         return QString::fromStdString(r.why);
+    case Description: return QString::fromStdString(r.descr);
     }
     return {};
 }
@@ -42,14 +44,14 @@ QVariant PlacesModel::headerData(int section, Qt::Orientation orientation, int r
         return {};
 
     switch (section) {
-    case Source: return "Источник";
-    case Query: return "Запрос";
-    case Name: return "Название";
-    case Address: return "Адрес";
-    case Phone: return "Телефон";
-    case Site: return "Сайт";
-    case Score: return "Баллы";
-    case Why: return "Причины";
+    case Source:      return "Источник";
+    case Query:       return "Запрос";
+    case Name:        return "Название";
+    case Address:     return "Адрес";
+    case Phone:       return "Телефон";
+    case Site:        return "Сайт";
+    case Score:       return "Баллы";
+    case Why:         return "Причины";
     case Description: return "Описание";
     }
     return {};
@@ -58,13 +60,11 @@ QVariant PlacesModel::headerData(int section, Qt::Orientation orientation, int r
 bool PlacesModel::removeRows(int row, int count, const QModelIndex &parent)
 {
     Q_UNUSED(parent);
-    if (row < 0 || row + count > m_rows.size())
+    if (row < 0 || static_cast<size_t>(row + count) > m_rows.size())
         return false;
 
     beginRemoveRows(QModelIndex(), row, row + count - 1);
-    for (int i = 0; i < count; ++i) {
-        m_rows.removeAt(row);
-    }
+    m_rows.erase(m_rows.begin() + row, m_rows.begin() + row + count);
     endRemoveRows();
 
     return true;
@@ -79,8 +79,8 @@ Qt::ItemFlags PlacesModel::flags(const QModelIndex &index) const
 }
 
 void PlacesModel::addRow(const PlaceRow& row) {
-    beginInsertRows(QModelIndex(), m_rows.size(), m_rows.size());
-    m_rows.push_back(row);
+    beginInsertRows(QModelIndex(), static_cast<int>(m_rows.size()), static_cast<int>(m_rows.size()));
+    m_rows.push_back(toCore(row));
     endInsertRows();
 }
 
@@ -90,12 +90,7 @@ void PlacesModel::exportCsv(const QString& path) const {
         return;
     QTextStream ts(&f);
     ts.setCodec("UTF-8");
-    ts << QStringLiteral("Источник;Запрос;Название;Адрес;Телефон;Сайт;Баллы;Причины;Описание\n");
-    for (const auto& r : m_rows) {
-        ts << r.source << ";" << r.query << ";" << r.name << ";" << r.address << ";"
-           << r.phone << ";" << r.site << ";"
-           << r.score << ";" << r.why << ";" << r.descr << "\n";
-    }
+    ts << QString::fromStdString(core::toCsv(m_rows));
 }
 
 bool PlacesModel::exportXlsx(const QString& path) const

@@ -1,8 +1,9 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 
 project(spothound VERSION 0.1 LANGUAGES CXX)
 
 add_subdirectory(3rdparty/QXlsx/QXlsx)
+add_subdirectory(src/core)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS src)
@@ -58,27 +59,16 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET spothound APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 else()
-    if(ANDROID)
-        add_library(spothound SHARED
-            ${PROJECT_SOURCES}
-        )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
-    else()
-        add_executable(spothound
-            ${PROJECT_SOURCES}
-        )
-    endif()
+    add_executable(spothound
+        ${PROJECT_SOURCES}
+    )
 endif()
 
 target_include_directories(spothound PRIVATE src)
 target_link_libraries(spothound PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt5::WebEngineWidgets Qt5::WebEngine Qt5::Sql)
 target_link_libraries(spothound PRIVATE QXlsx::QXlsx)
+target_link_libraries(spothound PRIVATE spothound-core)
 
 set_target_properties(spothound PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
@@ -90,4 +80,12 @@ set_target_properties(spothound PROPERTIES
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(spothound)
+endif()
+
+option(BUILD_TESTING "Build unit tests for spothound-core" OFF)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests/core)
+else()
+    add_subdirectory(tests/core EXCLUDE_FROM_ALL)
 endif()

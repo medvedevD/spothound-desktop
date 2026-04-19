@@ -2,9 +2,10 @@
 #define PLACESMODEL_H
 
 #include "placerow.h"
+#include "core/place_row_json.h"
 
 #include <QAbstractTableModel>
-
+#include <vector>
 
 class PlacesModel : public QAbstractTableModel {
     Q_OBJECT
@@ -27,7 +28,7 @@ public:
     void clear();
 
 private:
-    QList<PlaceRow> m_rows;
+    std::vector<core::PlaceRow> m_rows;
 };
 
 #endif // PLACESMODEL_H

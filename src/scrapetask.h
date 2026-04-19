@@ -2,6 +2,8 @@
 #define SCRAPETASK_H
 
 #include "placerow.h"
+#include "core/i_scraper.h"
+
 #include <QElapsedTimer>
 #include <QObject>
 #include <QStringList>
@@ -29,7 +31,8 @@ struct ScrapeStats {
     qint64 avgCardMs() const { return cardCount > 0 ? totalCardProcessMs / cardCount : 0; }
 };
 
-class ScrapeTask : public QObject {
+// QObject must be listed first in multiple inheritance with Qt.
+class ScrapeTask : public QObject, public core::IScraper {
     Q_OBJECT
 public:
     explicit ScrapeTask(QString query, QString city,
@@ -39,8 +42,11 @@ public:
                         QObject* p = nullptr);
     virtual ~ScrapeTask() = default;
 
-    virtual void start() = 0;
+    void start() override = 0;
     virtual void reset() = 0;
+    void stop() override {}
+
+    // setEventCallback() and m_eventCallback inherited from core::IScraper
 
 signals:
     void result(PlaceRow row);

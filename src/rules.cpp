@@ -1,28 +1,18 @@
 #include "rules.h"
-
-#include <QRegularExpression>
+#include "core/rules.h"
 
 QString Rules::norm(QString s)
 {
-    s=s.toLower().trimmed();
-    s.replace(QChar(0x0451), QChar(0x0435));
-    s.replace(QRegularExpression("\\s+"), " ");
-    return s;
+    return QString::fromStdString(core::Rules::norm(s.toStdString()));
 }
 
-QPair<int,QString> Rules::score(const QString& name, const QString& descr,
-                                bool hasSite, const QStringList& keywords)
+QPair<int, QString> Rules::score(const QString& name, const QString& descr,
+                                  bool hasSite, const QStringList& keywords)
 {
-    const QString text = norm(name + " " + descr);
-    int s=0; QStringList why;
-    for (const auto& kw: keywords) {
-        const QString k = kw.trimmed();
-        if (!k.isEmpty() && text.contains(k)) { ++s; why << "kw:"+k; }
-    }
-    if (hasSite) { ++s; why << "site"; }
-    return {s, why.join(", ")};
-}
-QString Rules::hashKey(const PlaceRow& r)
-{
-    return QCryptographicHash::hash((norm(r.name)+"|"+norm(r.address)).toUtf8(), QCryptographicHash::Sha1).toHex();
+    std::vector<std::string> kws;
+    kws.reserve(static_cast<size_t>(keywords.size()));
+    for (const auto& k : keywords)
+        kws.push_back(k.toStdString());
+    auto [s, why] = core::Rules::score(name.toStdString(), descr.toStdString(), hasSite, kws);
+    return {s, QString::fromStdString(why)};
 }

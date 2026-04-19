@@ -59,7 +59,7 @@
              <item>
               <layout class="QFormLayout" name="formLayout">
                <item row="0" column="0">
-                <widget class="QLabel" name="label">
+                <widget class="QLabel" name="labelSource">
                  <property name="text">
                   <string>Источник:</string>
                  </property>
@@ -85,7 +85,7 @@
                 </widget>
                </item>
                <item row="1" column="0">
-                <widget class="QLabel" name="label">
+                <widget class="QLabel" name="labelCity">
                  <property name="text">
                   <string>Город:</string>
                  </property>
@@ -102,7 +102,7 @@
                 </widget>
                </item>
                <item row="2" column="0">
-                <widget class="QLabel" name="label">
+                <widget class="QLabel" name="labelQuery">
                  <property name="text">
                   <string>Запрос:</string>
                  </property>

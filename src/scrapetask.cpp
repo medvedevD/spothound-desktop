@@ -1,10 +1,12 @@
 #include "scrapetask.h"
 #include "stopwordsstore.h"
+#include "place_row_convert.h"
 
 #include <QDateTime>
 #include <QDebug>
 #include <QFile>
 #include <QStandardPaths>
+#include <QWebEnginePage>
 
 ScrapeTask::ScrapeTask(QString query, QString city,
                        QWebEngineProfile* profile,
@@ -17,7 +19,32 @@ ScrapeTask::ScrapeTask(QString query, QString city,
     , m_profile(profile)
     , m_stopWordsStore(stopWordsStore)
     , m_scoreKeywords(std::move(scoreKeywords))
-{}
+{
+    connect(this, &ScrapeTask::phaseChanged, this, [this](const QString& phase) {
+        if (m_eventCallback) m_eventCallback(core::PhaseChangedEvent{phase.toStdString()});
+    });
+    connect(this, &ScrapeTask::gridProgress, this, [this](int total, int done) {
+        if (m_eventCallback) m_eventCallback(core::GridProgressEvent{total, done});
+    });
+    connect(this, &ScrapeTask::queueSized, this, [this](int total) {
+        if (m_eventCallback) m_eventCallback(core::QueueSizedEvent{total});
+    });
+    connect(this, &ScrapeTask::parseProgress, this, [this](int total, int done) {
+        if (m_eventCallback) m_eventCallback(core::ParseProgressEvent{total, done});
+    });
+    connect(this, &ScrapeTask::result, this, [this](PlaceRow row) {
+        if (m_eventCallback) m_eventCallback(core::ResultEvent{toCore(row)});
+    });
+    connect(this, &ScrapeTask::finishedAll, this, [this]() {
+        if (m_eventCallback) m_eventCallback(core::FinishedAllEvent{});
+    });
+    connect(this, &ScrapeTask::captchaRequested, this, [this](QWebEnginePage*) {
+        if (m_eventCallback) m_eventCallback(core::CaptchaRequestedEvent{});
+    });
+    connect(this, &ScrapeTask::preview, this, [this](QWebEnginePage*, const QString& title) {
+        if (m_eventCallback) m_eventCallback(core::PreviewEvent{title.toStdString()});
+    });
+}
 
 bool ScrapeTask::isBlocked(const PlaceRow& r) const
 {

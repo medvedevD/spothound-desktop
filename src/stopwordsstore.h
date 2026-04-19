@@ -2,10 +2,10 @@
 #define STOPWORDSSTORE_H
 
 #include "placerow.h"
+#include "core/stop_words_filter.h"
 
 #include <QObject>
 #include <QStringList>
-#include <QRegularExpression>
 
 class StopWordsStore : public QObject {
     Q_OBJECT
@@ -13,9 +13,9 @@ public:
     explicit StopWordsStore(const QString& filePath, QObject* parent=nullptr);
 
     const QStringList& list() const { return m_list; }
-    void setList(QStringList l);        // заменяет список и сохраняет
-    bool load();                        // читает из файла
-    bool save() const;                  // пишет в файл
+    void setList(QStringList l);
+    bool load();
+    bool save() const;
     bool matches(const QString& text) const;
     bool matchesRow(const PlaceRow& r) const;
 
@@ -26,8 +26,7 @@ private:
     QString m_path;
     QStringList m_list;
     void rebuild();
-
-    QRegularExpression m_rxStop;
+    core::StopWordsFilter m_filter;
 };
 
 #endif // STOPWORDSSTORE_H

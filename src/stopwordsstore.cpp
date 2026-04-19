@@ -3,8 +3,6 @@
 #include <QFile>
 #include <QTextStream>
 #include <QUrl>
-#include <QDebug>
-
 
 StopWordsStore::StopWordsStore(const QString& p, QObject* parent)
     : QObject(parent), m_path(p)
@@ -15,23 +13,19 @@ StopWordsStore::StopWordsStore(const QString& p, QObject* parent)
     }
 }
 
-void StopWordsStore::rebuild() {
-    // стоп-слова
-    QStringList esc;
-    for (QString s : m_list) { s=s.trimmed(); if(!s.isEmpty()) esc << QRegularExpression::escape(s); }
-    const QString stopCore = esc.join("|");
-    const QString stopPat = stopCore.isEmpty()
-        ? QStringLiteral("(?!x)x")
-        : QStringLiteral("(^|[^\\p{L}\\p{N}_])(?:%1)($|[^\\p{L}\\p{N}_])").arg(stopCore);
-    m_rxStop = QRegularExpression(stopPat,
-        QRegularExpression::UseUnicodePropertiesOption | QRegularExpression::CaseInsensitiveOption);
-
+void StopWordsStore::rebuild()
+{
+    std::vector<std::string> words;
+    words.reserve(static_cast<size_t>(m_list.size()));
+    for (const auto& s : m_list)
+        words.push_back(s.toStdString());
+    m_filter.setWords(std::move(words));
 }
 
 bool StopWordsStore::load()
 {
     QFile f(m_path);
-    if (!f.open(QIODevice::ReadOnly|QIODevice::Text)) { rebuild(); return false; }
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { rebuild(); return false; }
     QStringList out;
     QTextStream ts(&f); ts.setCodec("UTF-8");
     while (!ts.atEnd()) out << ts.readLine();
@@ -44,7 +38,7 @@ bool StopWordsStore::load()
 bool StopWordsStore::save() const
 {
     QFile f(m_path);
-    if (!f.open(QIODevice::WriteOnly|QIODevice::Text)) return false;
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
     QTextStream ts(&f); ts.setCodec("UTF-8");
     for (const auto& s : m_list) ts << s << "\n";
     return true;
@@ -63,28 +57,21 @@ void StopWordsStore::setList(QStringList l)
 
 bool StopWordsStore::matches(const QString& text) const
 {
-    QString norm = text;
-    norm.replace(QChar(0x0451), QChar(0x0435));            // ё→е
-    return m_rxStop.isValid() && m_rxStop.match(norm).hasMatch();
+    return m_filter.matches(text.toStdString());
 }
 
 bool StopWordsStore::matchesRow(const PlaceRow& r) const
 {
-    // общий текст
-    QString blob = (r.name + " " + r.descr + " " + r.address + " " + r.site).toLower();
+    const std::string blob =
+        (r.name + " " + r.descr + " " + r.address + " " + r.site).toStdString();
+    if (m_filter.matches(blob)) return true;
 
-    qDebug() << "blob" << blob;
-    blob.replace(QChar(0x0451), QChar(0x0435));            // ё→е
-    if (matches(blob)) return true;
-
-    // домены сайтов из r.site
-    QString hosts;
+    std::string hosts;
     const auto parts = r.site.split(',', Qt::SkipEmptyParts);
     for (const QString& part : parts) {
         const QUrl u(part.trimmed());
-        QString h = u.host().toLower();
-        h.replace(QChar(0x0451), QChar(0x0435));
-        if (!h.isEmpty()) { hosts += ' '; hosts += h; }
+        const std::string h = u.host().toStdString();
+        if (!h.empty()) { hosts += ' '; hosts += h; }
     }
-    return matches(hosts);
+    return m_filter.matches(hosts);
 }
