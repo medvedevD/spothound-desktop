@@ -2,10 +2,10 @@
 #include "./ui_mainwindow.h"
 #include "hintlistwidget.h"
 
-#include "scrapetask.h"
-#include "yandexscraper.h"
-#include "twogisscraper.h"
-#include "googlemapsscraper.h"
+#include "adapters/qt/scrapetask.h"
+#include "adapters/qt/yandexscraper.h"
+#include "adapters/qt/twogisscraper.h"
+#include "adapters/qt/googlemapsscraper.h"
 
 #include <QWebEngineProfile>
 #include <QMenu>
@@ -331,13 +331,13 @@ void MainWindow::onStart()
         m_progress->setFormat(QString("Карточки: %1/%2 (%p%)").arg(done).arg(total));
     });
 
-    auto statsHolder = std::make_shared<ScrapeStats>();
-    connect(scraper, &ScrapeTask::statsReady, this, [statsHolder](ScrapeStats s){
+    auto statsHolder = std::make_shared<core::ScrapeStats>();
+    connect(scraper, &ScrapeTask::statsReady, this, [statsHolder](core::ScrapeStats s){
         *statsHolder = s;
     });
 
     connect(scraper, &ScrapeTask::finishedAll, this, [this, statsHolder]{
-        const ScrapeStats& s = *statsHolder;
+        const core::ScrapeStats& s = *statsHolder;
         if (s.cardCount > 0) {
             m_phaseLbl->setText(QString("Готово | Сбор: %1с | %2 карт за %3с (avg %4с/карт)")
                 .arg(s.collectionMs / 1000.0, 0, 'f', 1)

@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include "placesmodel.h"
-#include "stopwordsstore.h"
+#include "adapters/qt/stopwordsstore.h"
 
 #include <QLabel>
 #include <QMainWindow>

@@ -25,9 +25,9 @@ void GoogleMapsScraper::start()
     m_aborted = false;
     m_parsingStarted = false;
     m_stats = {};
-    m_stats.source = QStringLiteral("Google Maps");
-    m_stats.query = m_query + " " + m_city;
-    m_stats.city = m_city;
+    m_stats.source = "Google Maps";
+    m_stats.query = (m_query + " " + m_city).toStdString();
+    m_stats.city = m_city.toStdString();
     m_collectionTimer.start();
 
     m_seen.clear();
@@ -320,7 +320,7 @@ void GoogleMapsScraper::openCard(const QUrl& href)
                         m_stats.cardCount++;
                         m_stats.totalCardProcessMs += cardMs;
                         if (m_stats.minCardMs < 0 || cardMs < m_stats.minCardMs) m_stats.minCardMs = cardMs;
-                        m_stats.maxCardMs = qMax(m_stats.maxCardMs, cardMs);
+                        if (cardMs > m_stats.maxCardMs) m_stats.maxCardMs = cardMs;
                         page->deleteLater();
 
                         m_doneCards++;

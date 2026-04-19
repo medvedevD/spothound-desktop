@@ -21,6 +21,7 @@ add_library(spothound-core STATIC
     city_registry.h
     scraper_events.h
     i_scraper.h
+    scrape_stats.h
 )
 target_include_directories(spothound-core
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/..   # src/ — consumers use "core/rules.h"
