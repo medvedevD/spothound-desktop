@@ -28,6 +28,13 @@ protected:
     bool eventFilter(QObject* obj, QEvent* e) override;
 
 private:
+    void setupStatusBar();
+    void setupTableView();
+    void setupBrowserPanel();
+    void setupKeywordsList();
+    void setupStopWordsList();
+    void setupResultsPage();
+
     void onStart();
     void onTableContextMenu(const QPoint &pos);
 
@@ -36,7 +43,7 @@ private:
     PlacesModel *m_model = nullptr;
     QWebEngineProfile *m_profile = nullptr;
     QWebEngineView *m_view = nullptr;
-StopWordsStore *m_stopStore = nullptr;
+    StopWordsStore *m_stopStore = nullptr;
     ScrapeTask *m_currentScraper = nullptr;
 
     QList<int> m_splitterSizes;

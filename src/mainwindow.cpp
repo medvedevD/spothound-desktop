@@ -8,6 +8,7 @@
 #include "googlemapsscraper.h"
 
 #include <QWebEngineProfile>
+#include <QMenu>
 #include <QVBoxLayout>
 #include <QStandardPaths>
 #include <QDir>
@@ -16,12 +17,43 @@
 #include <QFileDialog>
 #include <QKeyEvent>
 
+static const char* kSpinnerHtml = R"(<!DOCTYPE html><html><head><style>
+body{margin:0;display:flex;align-items:center;justify-content:center;
+     height:100vh;background:#1e1e1e;font-family:sans-serif;color:#999;}
+.spinner{width:32px;height:32px;border:3px solid #333;border-top-color:#5b9bd5;
+         border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:12px;}
+</style></head><body>
+<div class="wrap"><div class="spinner"></div><span>Инициализация...</span></div>
+</body></html>)";
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
+    setupStatusBar();
+    setupTableView();
+    setupBrowserPanel();
+    setupKeywordsList();
+    setupStopWordsList();
+    setupResultsPage();
+
+    auto updateGridLabel = [this](int n) {
+        ui->gridLabel->setText(QString("Сетка %1×%1:").arg(n));
+    };
+    connect(ui->gridSize, qOverload<int>(&QSpinBox::valueChanged), this, updateGridLabel);
+    updateGridLabel(ui->gridSize->value());
+
+    connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
+
+    ui->stackedWidget->setCurrentIndex(0);
+}
+
+void MainWindow::setupStatusBar()
+{
     m_phaseLbl = new QLabel(this);
     m_progress = new QProgressBar(this);
     m_progress->setMinimumWidth(320);
@@ -32,7 +64,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     statusBar()->addWidget(m_phaseLbl);
     statusBar()->addWidget(m_progress);
+    m_progress->hide();
+    statusBar()->hide();
+}
 
+void MainWindow::setupTableView()
+{
     m_model = new PlacesModel(this);
     ui->tableView->setModel(m_model);
     ui->tableView->setStyleSheet("QTableView { border: 1px solid rgba(255,255,255,38); }");
@@ -45,16 +82,27 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onTableContextMenu);
 
     connect(ui->exportCsv, &QPushButton::clicked, this, [this] {
-        m_model->exportCsv("1.csv");
+        const QString fn = QFileDialog::getSaveFileName(this, "Экспорт в CSV",
+                             "results.csv", "CSV (*.csv)");
+        if (fn.isEmpty()) return;
+        m_model->exportCsv(fn);
     });
 
+    connect(ui->exportXlsx, &QPushButton::clicked, this, [this] {
+        const QString fn = QFileDialog::getSaveFileName(this, "Экспорт в Excel",
+                             "results.xlsx", "Excel (*.xlsx)");
+        if (fn.isEmpty()) return;
+        m_model->exportXlsx(fn);
+    });
+}
+
+void MainWindow::setupBrowserPanel()
+{
     m_profile = new QWebEngineProfile(this);
     m_profile->setPersistentCookiesPolicy(QWebEngineProfile::ForcePersistentCookies);
     m_profile->setPersistentStoragePath(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/profile");
     m_profile->setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36");
     m_profile->setHttpAcceptLanguage("ru-RU,ru;q=0.9,en-US;q=0.7");
-
-    YandexScraper::setupProfile(m_profile);
 
     auto* browserLayout = new QVBoxLayout(ui->browserContainer);
     browserLayout->setContentsMargins(0, 0, 0, 0);
@@ -85,14 +133,10 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     ui->browserContainer->hide();
+}
 
-    auto updateGridLabel = [this](int n) {
-        ui->gridLabel->setText(QString("Сетка %1×%1:").arg(n));
-    };
-    connect(ui->gridSize, qOverload<int>(&QSpinBox::valueChanged), this, updateGridLabel);
-    updateGridLabel(ui->gridSize->value());
-
-    // Keywords list
+void MainWindow::setupKeywordsList()
+{
     ui->keywordsList->setHint("Нет ключевых слов");
     ui->keywordsList->installEventFilter(this);
 
@@ -112,21 +156,19 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnRemoveKeyword, &QPushButton::clicked, this, [this] {
         delete ui->keywordsList->currentItem();
     });
+}
 
-    // Stop words list
-    auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+void MainWindow::setupStopWordsList()
+{
+    const QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(path);
     m_stopStore = new StopWordsStore(path + "/stopwords.txt", this);
 
     ui->stopWordsList->setHint("Нет стоп-слов");
     ui->stopWordsList->installEventFilter(this);
 
-    auto reloadStopWords = [this] {
-        ui->stopWordsList->clear();
-        for (const QString& w : m_stopStore->list())
-            ui->stopWordsList->addItem(w);
-    };
-    reloadStopWords();
+    for (const QString& w : m_stopStore->list())
+        ui->stopWordsList->addItem(w);
 
     auto addStopWord = [this] {
         const QString word = ui->stopWordInput->text().trimmed();
@@ -148,9 +190,10 @@ MainWindow::MainWindow(QWidget *parent)
         m_stopStore->setList(words);
         delete ui->stopWordsList->currentItem();
     });
+}
 
-    connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
-
+void MainWindow::setupResultsPage()
+{
     connect(ui->previewCheck, &QCheckBox::toggled, this, [this](bool checked) {
         if (checked) {
             ui->browserContainer->setVisible(true);
@@ -166,6 +209,8 @@ MainWindow::MainWindow(QWidget *parent)
         if (m_currentScraper) m_currentScraper->reset();
         m_model->clear();
         m_phaseLbl->setText(QString());
+        statusBar()->hide();
+        m_progress->hide();
         m_progress->setRange(0, 1);
         m_progress->setValue(0);
         m_progress->setFormat(QString());
@@ -173,14 +218,7 @@ MainWindow::MainWindow(QWidget *parent)
         ui->stackedWidget->setCurrentIndex(0);
     });
 
-    connect(ui->exportXlsx, &QPushButton::clicked, this, [this]{
-        const QString fn = QFileDialog::getSaveFileName(this, "Экспорт в Excel",
-                             "results.xlsx", "Excel (*.xlsx)");
-        if (fn.isEmpty()) return;
-        m_model->exportXlsx(fn);
-    });
-
-    connect(ui->btnClear, &QPushButton::clicked, this, [this]{
+    connect(ui->btnClear, &QPushButton::clicked, this, [this] {
         if (m_currentScraper) m_currentScraper->reset();
         m_model->clear();
         m_phaseLbl->setText(QString());
@@ -188,8 +226,6 @@ MainWindow::MainWindow(QWidget *parent)
         m_progress->setValue(0);
         m_progress->setFormat(QString());
     });
-
-    ui->stackedWidget->setCurrentIndex(0);
 }
 
 MainWindow::~MainWindow()
@@ -224,9 +260,8 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* e)
 void MainWindow::onStart()
 {
     const QString query = ui->searchRequest->text().trimmed();
-    const QString city  = ui->cityInput->text().trimmed().isEmpty()
-                          ? QStringLiteral("Москва")
-                          : ui->cityInput->text().trimmed();
+    const QString cityRaw = ui->cityInput->text().trimmed();
+    const QString city    = cityRaw.isEmpty() ? QStringLiteral("Москва") : cityRaw;
     if (query.isEmpty()) return;
 
     QStringList keywords;
@@ -246,21 +281,31 @@ void MainWindow::onStart()
 
     m_currentScraper = scraper;
 
-    const QStringList sourceNames = {"Яндекс.Карты", "2ГИС", "Google Maps"};
+    static const QStringList sourceNames = {"Яндекс.Карты", "2ГИС", "Google Maps"};
     QString summary = sourceNames.value(source) + " · " + city + " · " + query;
     if (!keywords.isEmpty()) summary += " · " + keywords.join(", ");
     ui->searchSummaryLabel->setText(summary);
 
+    m_progress->show();
+    statusBar()->show();
     ui->stackedWidget->setCurrentIndex(1);
 
-    connect(scraper, &ScrapeTask::captchaRequested, this, [this](QWebEnginePage* page){
+    auto setViewPage = [this](QWebEnginePage* page) {
+        QWebEnginePage* old = m_view->page();
+        if (old && old->parent() == m_view)
+            delete old;
         m_view->setPage(page);
+        page->setParent(m_view);
+    };
+
+    connect(scraper, &ScrapeTask::captchaRequested, this, [this, setViewPage](QWebEnginePage* page){
+        setViewPage(page);
         ui->previewCheck->setChecked(true);
     });
 
-    connect(scraper, &ScrapeTask::preview, this, [this](QWebEnginePage* page, const QString&){
+    connect(scraper, &ScrapeTask::preview, this, [this, setViewPage](QWebEnginePage* page, const QString&){
         if (!ui->previewCheck->isChecked()) return;
-        m_view->setPage(page);
+        setViewPage(page);
     });
 
     connect(scraper, &ScrapeTask::phaseChanged, this, [this](const QString& p){
@@ -297,16 +342,7 @@ void MainWindow::onStart()
         scraper->deleteLater();
     });
 
-    m_view->setHtml(R"(<!DOCTYPE html><html><head><style>
-body{margin:0;display:flex;align-items:center;justify-content:center;
-     height:100vh;background:#1e1e1e;font-family:sans-serif;color:#999;}
-.spinner{width:32px;height:32px;border:3px solid #333;border-top-color:#5b9bd5;
-         border-radius:50%;animation:spin 0.8s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg)}}
-.wrap{display:flex;flex-direction:column;align-items:center;gap:12px;}
-</style></head><body>
-<div class="wrap"><div class="spinner"></div><span>Инициализация...</span></div>
-</body></html>)");
+    m_view->setHtml(kSpinnerHtml);
 
     scraper->start();
 }
@@ -316,13 +352,13 @@ void MainWindow::onTableContextMenu(const QPoint& pos) {
     const QModelIndex idx = tv->indexAt(pos);
     if (!idx.isValid()) return;
 
-    QMenu m(this);
-    QAction* aCell = m.addAction("Копировать ячейку");
-    QAction* aRow  = m.addAction("Копировать строку");
-    QAction* aCol  = m.addAction("Копировать столбец");
-    QAction* aDel  = m.addAction("Удалить строку");
+    QMenu menu(this);
+    QAction* aCell = menu.addAction("Копировать ячейку");
+    QAction* aRow  = menu.addAction("Копировать строку");
+    QAction* aCol  = menu.addAction("Копировать столбец");
+    QAction* aDel  = menu.addAction("Удалить строку");
 
-    QAction* act = m.exec(tv->viewport()->mapToGlobal(pos));
+    QAction* act = menu.exec(tv->viewport()->mapToGlobal(pos));
     if (!act) return;
 
     auto* mdl = tv->model();
