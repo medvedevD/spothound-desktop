@@ -36,9 +36,10 @@ private:
     PlacesModel *m_model = nullptr;
     QWebEngineProfile *m_profile = nullptr;
     QWebEngineView *m_view = nullptr;
-    bool m_preview = true;
-    StopWordsStore *m_stopStore = nullptr;
+StopWordsStore *m_stopStore = nullptr;
     ScrapeTask *m_currentScraper = nullptr;
+
+    QList<int> m_splitterSizes;
 
     QLabel* m_phaseLbl = nullptr;
     QProgressBar* m_progress = nullptr;

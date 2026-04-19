@@ -8,6 +8,7 @@
 #include "googlemapsscraper.h"
 
 #include <QWebEngineProfile>
+#include <QVBoxLayout>
 #include <QStandardPaths>
 #include <QDir>
 #include <QGuiApplication>
@@ -34,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_model = new PlacesModel(this);
     ui->tableView->setModel(m_model);
+    ui->tableView->setStyleSheet("QTableView { border: 1px solid rgba(255,255,255,38); }");
 
     ui->tableView->setColumnHidden(PlacesModel::Score, true);
     ui->tableView->setColumnHidden(PlacesModel::Why, true);
@@ -54,12 +56,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     YandexScraper::setupProfile(m_profile);
 
-    m_view = new QWebEngineView(nullptr);
-    m_view->setAttribute(Qt::WA_QuitOnClose, false);
-    m_view->setWindowFlag(Qt::Tool, true);
-    m_view->setWindowModality(Qt::NonModal);
-    m_view->resize(1100, 800);
-    m_view->hide();
+    auto* browserLayout = new QVBoxLayout(ui->browserContainer);
+    browserLayout->setContentsMargins(0, 0, 0, 0);
+    m_view = new QWebEngineView(ui->browserContainer);
+    browserLayout->addWidget(m_view);
+    ui->browserContainer->hide();
 
     auto updateGridLabel = [this](int n) {
         ui->gridLabel->setText(QString("Сетка %1×%1:").arg(n));
@@ -126,6 +127,17 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
 
+    connect(ui->previewCheck, &QCheckBox::toggled, this, [this](bool checked) {
+        if (checked) {
+            ui->browserContainer->setVisible(true);
+            if (!m_splitterSizes.isEmpty())
+                ui->browserSplitter->setSizes(m_splitterSizes);
+        } else {
+            m_splitterSizes = ui->browserSplitter->sizes();
+            ui->browserContainer->setVisible(false);
+        }
+    });
+
     connect(ui->btnNewSearch, &QPushButton::clicked, this, [this] {
         if (m_currentScraper) m_currentScraper->reset();
         m_model->clear();
@@ -133,7 +145,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_progress->setRange(0, 1);
         m_progress->setValue(0);
         m_progress->setFormat(QString());
-        if (m_view) m_view->hide();
+        ui->previewCheck->setChecked(false);
         ui->stackedWidget->setCurrentIndex(0);
     });
 
@@ -151,7 +163,6 @@ MainWindow::MainWindow(QWidget *parent)
         m_progress->setRange(0, 1);
         m_progress->setValue(0);
         m_progress->setFormat(QString());
-        if (m_view) m_view->hide();
     });
 
     ui->stackedWidget->setCurrentIndex(0);
@@ -220,18 +231,12 @@ void MainWindow::onStart()
 
     connect(scraper, &ScrapeTask::captchaRequested, this, [this](QWebEnginePage* page){
         m_view->setPage(page);
-        m_view->show();
-        m_view->raise();
-        m_view->activateWindow();
+        ui->previewCheck->setChecked(true);
     });
 
-    connect(scraper, &ScrapeTask::preview, this, [this](QWebEnginePage* page, const QString& title){
-        if (!m_preview) return;
+    connect(scraper, &ScrapeTask::preview, this, [this](QWebEnginePage* page, const QString&){
+        if (!ui->previewCheck->isChecked()) return;
         m_view->setPage(page);
-        m_view->setWindowTitle(title);
-        m_view->show();
-        m_view->raise();
-        m_view->activateWindow();
     });
 
     connect(scraper, &ScrapeTask::phaseChanged, this, [this](const QString& p){
