@@ -2,9 +2,9 @@
 #define YANDEXSCRAPER_H
 
 #include "scrapetask.h"
-#include <QWebEnginePage>
 
-class CaptchaAwarePage;
+class YandexCollector;
+class YandexParser;
 
 class YandexScraper : public ScrapeTask {
     Q_OBJECT
@@ -22,36 +22,11 @@ public:
     static void setupProfile(QWebEngineProfile* profile);
 
 private:
-    CaptchaAwarePage* m_searchPage = nullptr;
-    QStringList m_hrefQueue;
+    void onHrefsReady(QStringList hrefs);
 
-    void openSearch();
-    void collectHrefs();
-    void collectHrefsStep();
-    void processQueue();
-    void openCard(const QUrl& href);
-    void waitListStable(QWebEnginePage* page, std::function<void()> cont);
-
-    QUrl m_searchUrl;
-
-    bool m_aborted = false;
-    QSet<QString> m_seen;
-    int m_pass = 0;
-    const int m_maxPass = 12;
-    int m_idlePass = 0;
-    bool m_forcedRu = false;
-    int m_delay = 1100;
-
-    QSet<QString> m_seenGlobal;
-    QVector<QPointF> m_cells;
-    int m_cellIdx = 0;
-    int m_cellZoom = 14;
-    void buildCells();
-    void nextCell();
-
-    int m_gridN = 5;
-    int m_totalCells = 0, m_doneCells = 0;
-    int m_totalCards = 0, m_doneCards = 0;
+    const int        m_gridN;
+    YandexCollector* m_collector = nullptr;
+    YandexParser*    m_parser    = nullptr;
 };
 
 #endif // YANDEXSCRAPER_H

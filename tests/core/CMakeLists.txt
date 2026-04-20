@@ -16,6 +16,7 @@ add_executable(spothound_core_tests
     test_place_row_json.cpp
     test_csv_export.cpp
     test_city_registry.cpp
+    test_geo_grid.cpp
 )
 
 target_link_libraries(spothound_core_tests PRIVATE

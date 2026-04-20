@@ -13,12 +13,14 @@ add_library(spothound-core STATIC
     stop_words_filter.cpp
     csv_export.cpp
     city_registry.cpp
+    geo_grid.cpp
     place_row.h
     place_row_json.h
     rules.h
     stop_words_filter.h
     csv_export.h
     city_registry.h
+    geo_grid.h
     scraper_events.h
     i_scraper.h
     scrape_stats.h

@@ -30,6 +30,10 @@ set(PROJECT_SOURCES
         src/adapters/qt/scrapetask.cpp
         src/adapters/qt/yandexscraper.h
         src/adapters/qt/yandexscraper.cpp
+        src/adapters/qt/yandexcollector.h
+        src/adapters/qt/yandexcollector.cpp
+        src/adapters/qt/yandexparser.h
+        src/adapters/qt/yandexparser.cpp
         src/adapters/qt/twogisscraper.h
         src/adapters/qt/twogisscraper.cpp
         src/adapters/qt/googlemapsscraper.h
