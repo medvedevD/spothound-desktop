@@ -1,104 +1,11 @@
 #include "yandexcollector.h"
+#include "yandex_js.h"
 #include "captchaawarepage.h"
 #include "core/geo_grid.h"
 
 #include <QPointer>
 #include <QTimer>
 #include <QUrlQuery>
-
-// -- JavaScript fragments --
-
-static const QString kJsListCount = R"JS(
-  (function(){
-    return (document.querySelectorAll('[role="listitem"], [data-testid="search-snippet-view"]')||[]).length;
-  })();
-)JS";
-
-static const QString kJsScrollAndCollect = R"JS(
-(function(){
-  function clickByText(rx){
-    const nodes=[].slice.call(document.querySelectorAll('button, [role="button"], a[role="button"], div[role="button"]'));
-    for (let i=0;i<nodes.length;i++){
-      const t=((nodes[i].innerText||nodes[i].textContent||"")+"").toLowerCase().replace(/ё/g,'е').trim();
-      if (!t) continue;
-      if (rx.test(t)) { const r=nodes[i].getBoundingClientRect(); if (r.width>5&&r.height>5){ nodes[i].click(); return true; } }
-    }
-    return false;
-  }
-  clickByText(/список|списком/);
-  clickByText(/искать здесь/);
-
-  function isScrollable(el){
-    if (!el) return false;
-    const cs=getComputedStyle(el);
-    return ((cs.overflowY==='auto'||cs.overflowY==='scroll') && el.scrollHeight>el.clientHeight+20);
-  }
-  function listRoot(){
-    const seeds=[
-      document.querySelector('[data-testid="search-snippet-view"]'),
-      document.querySelector('div[role="list"]'),
-      document.querySelector('[class*="search-list-view"]'),
-      document.querySelector('[class*="search-panel-view"]')
-    ].filter(Boolean);
-    for (let i=0;i<seeds.length;i++){
-      let el=seeds[i];
-      for (let k=0;k<6 && el; k++, el=el.parentElement) if (isScrollable(el)) return el;
-    }
-    const all=[].slice.call(document.querySelectorAll('div'));
-    for (let i=0;i<all.length;i++){
-      const el=all[i], r=el.getBoundingClientRect();
-      if (r.width>260 && r.width<620 && r.height>200 && isScrollable(el)) return el;
-    }
-    return null;
-  }
-  const root = listRoot();
-  const scope = root || document;
-
-  const as=[].slice.call(scope.querySelectorAll('a[href*="/maps/org/"]'));
-  const out=[], seen={};
-  for (let i=0;i<as.length;i++){
-    let u = as[i].href||""; if(!u) continue;
-    u = u.replace(/^https:\/\/yandex\.com/,'https://yandex.ru');
-    u = u.replace(/\/(gallery|reviews|related|panorama)(\/.*)?$/,'/');
-    u = u.replace(/\?.*$/,'');
-    const m = u.match(/^(https:\/\/yandex\.ru\/maps\/org\/[^/]+\/\d+)\/$/);
-    if (!m) continue;
-    u = m[1] + "/";
-    if (seen[u]) continue; seen[u]=true;
-    out.push(u);
-  }
-
-  function clickMore(){
-    const btns=[].slice.call((root||document).querySelectorAll('button, [role="button"]'));
-    for (let i=0;i<btns.length;i++){
-      const t=((btns[i].innerText||btns[i].textContent||"")+"").toLowerCase().replace(/ё/g,'е').trim();
-      if (!t) continue;
-      if (t.includes('показать еще') || t==='еще' || t.includes('показать больше') || t.includes('дальше')) {
-        const r=btns[i].getBoundingClientRect(); if (r.width>5&&r.height>5){ btns[i].click(); return true; }
-      }
-    }
-    return false;
-  }
-  clickMore();
-
-  if (root){
-    root.scrollTop = root.scrollTop + 2000;
-    const ev = new WheelEvent('wheel', {deltaY:2000, bubbles:true, cancelable:true});
-    root.dispatchEvent(ev);
-  } else {
-    window.scrollBy(0, 2000);
-  }
-
-  const itemsCount = (scope.querySelectorAll('[role="listitem"], [data-testid="search-snippet-view"]')||[]).length;
-  const orgCount = (document.querySelectorAll('a[href*="/maps/org/"]')||[]).length;
-
-  return { urls: out, hasRoot: !!root, itemsCount: itemsCount, orgCount: orgCount };
-})();
-)JS";
-
-static const QString kJsOrgCount = QStringLiteral(
-    "document.querySelectorAll('a[href*=\"/maps/org/\"]').length;"
-);
 
 // -- Timing constants (ms) --
 static constexpr int kAfterSearchLoadDelayMs = 500;
@@ -244,7 +151,7 @@ void YandexCollector::waitListStable(QWebEnginePage* page, std::function<void()>
     auto poll = QSharedPointer<std::function<void()>>::create();
     *poll = [this, p, attempts, last, cont, poll]() mutable {
         if (!p) return;
-        p->runJavaScript(kJsListCount, [this, p, attempts, last, cont, poll](const QVariant& v){
+        p->runJavaScript(kYandexJsListCount, [this, p, attempts, last, cont, poll](const QVariant& v){
             if (!p) return;
             const int cur = v.toInt();
             if (cur == *last || *attempts <= 0) { cont(); return; }
@@ -258,7 +165,7 @@ void YandexCollector::waitListStable(QWebEnginePage* page, std::function<void()>
 void YandexCollector::waitForNewOrgs(QWebEnginePage* page, int prevCount)
 {
     QPointer<QWebEnginePage> wp = page;
-    wp->runJavaScript(kJsOrgCount, [this, wp, prevCount](const QVariant& v) {
+    wp->runJavaScript(kYandexJsOrgCount, [this, wp, prevCount](const QVariant& v) {
         const qint64 ms = m_scrollTimer.elapsed();
         if (!wp || v.toInt() > prevCount || ms >= kScrollTimeoutMs) {
             qDebug() << "[YC] scroll→items:" << ms << "ms (prev" << prevCount << "→" << v.toInt() << ")";
@@ -281,7 +188,7 @@ void YandexCollector::collectHrefsStep()
     waitListStable(page, [this, page]{
         if (!page) return;
 
-        page->runJavaScript(kJsScrollAndCollect, [this, page](const QVariant& v){
+        page->runJavaScript(kYandexJsScrollAndCollect, [this, page](const QVariant& v){
             if (!page) return;
 
             const auto m   = v.toMap();

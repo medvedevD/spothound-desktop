@@ -15,8 +15,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine Test)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine Test)
 
 set(PROJECT_SOURCES
         src/gui/main.cpp
@@ -83,6 +83,8 @@ option(BUILD_TESTING "Build unit tests for spothound-core" OFF)
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests/core)
+    add_subdirectory(tests/scraper)
 else()
     add_subdirectory(tests/core EXCLUDE_FROM_ALL)
+    add_subdirectory(tests/scraper EXCLUDE_FROM_ALL)
 endif()
