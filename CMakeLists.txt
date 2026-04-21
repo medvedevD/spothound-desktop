@@ -44,6 +44,7 @@ set(PROJECT_SOURCES
         src/adapters/qt/loggingpage.cpp
         src/adapters/qt/stopwordsstore.h
         src/adapters/qt/stopwordsstore.cpp
+        src/adapters/qt/yandex_js.h
         resources.qrc
 )
 
@@ -87,4 +88,10 @@ if(BUILD_TESTING)
 else()
     add_subdirectory(tests/core EXCLUDE_FROM_ALL)
     add_subdirectory(tests/scraper EXCLUDE_FROM_ALL)
+endif()
+
+option(BUILD_INTEGRATION_TESTS "Build network-dependent integration tests (requires internet)" OFF)
+if(BUILD_INTEGRATION_TESTS)
+    enable_testing()
+    add_subdirectory(tests/integration)
 endif()
