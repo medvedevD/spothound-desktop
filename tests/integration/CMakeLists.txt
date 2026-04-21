@@ -15,6 +15,30 @@ add_executable(spothound_integration_tests
     test_yandex_integration.cpp
 )
 
+add_executable(spothound_acceptance_tests
+    main.cpp
+    test_acceptance.cpp
+    ${CMAKE_SOURCE_DIR}/src/adapters/qt/scrapetask.cpp
+    ${CMAKE_SOURCE_DIR}/src/adapters/qt/yandexscraper.cpp
+    ${CMAKE_SOURCE_DIR}/src/adapters/qt/yandexcollector.cpp
+    ${CMAKE_SOURCE_DIR}/src/adapters/qt/yandexparser.cpp
+    ${CMAKE_SOURCE_DIR}/src/adapters/qt/captchaawarepage.cpp
+    ${CMAKE_SOURCE_DIR}/src/adapters/qt/stopwordsstore.cpp
+)
+
+target_include_directories(spothound_acceptance_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(spothound_acceptance_tests PRIVATE
+    spothound-core
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::WebEngineWidgets
+    Qt${QT_VERSION_MAJOR}::Test
+    Qt${QT_VERSION_MAJOR}::Sql
+    GTest::gtest
+)
+
 target_include_directories(spothound_integration_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
