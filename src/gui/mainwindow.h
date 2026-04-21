@@ -26,9 +26,12 @@ public:
 
 protected:
     bool eventFilter(QObject* obj, QEvent* e) override;
+    void closeEvent(QCloseEvent* e) override;
 
 private:
     void setupStatusBar();
+    void saveSettings();
+    void loadSettings();
     void setupTableView();
     void setupBrowserPanel();
     void setupKeywordsList();

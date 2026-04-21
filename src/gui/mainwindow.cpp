@@ -17,6 +17,8 @@
 #include <QClipboard>
 #include <QFileDialog>
 #include <QKeyEvent>
+#include <QCloseEvent>
+#include <QSettings>
 
 static const char* kSpinnerHtml = R"(<!DOCTYPE html><html><head><style>
 body{margin:0;display:flex;align-items:center;justify-content:center;
@@ -51,6 +53,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startBtn, &QPushButton::clicked, this, &MainWindow::onStart);
 
     ui->stackedWidget->setCurrentIndex(0);
+
+    loadSettings();
 }
 
 void MainWindow::setupStatusBar()
@@ -161,15 +165,10 @@ void MainWindow::setupKeywordsList()
 
 void MainWindow::setupStopWordsList()
 {
-    const QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(path);
-    m_stopStore = new StopWordsStore(path + "/stopwords.txt", this);
+    m_stopStore = new StopWordsStore(QString(), this);
 
     ui->stopWordsList->setHint("Нет стоп-слов");
     ui->stopWordsList->installEventFilter(this);
-
-    for (const QString& w : m_stopStore->list())
-        ui->stopWordsList->addItem(w);
 
     auto addStopWord = [this] {
         const QString word = ui->stopWordInput->text().trimmed();
@@ -227,6 +226,67 @@ void MainWindow::setupResultsPage()
         m_progress->setValue(0);
         m_progress->setFormat(QString());
     });
+}
+
+static std::unique_ptr<QSettings> appSettings()
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(dir);
+    auto s = std::make_unique<QSettings>(dir + "/settings.ini", QSettings::IniFormat);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    s->setIniCodec("UTF-8");
+#endif
+    return s;
+}
+
+void MainWindow::saveSettings()
+{
+    auto s = appSettings();
+    QFile gf(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/geometry.dat");
+    if (gf.open(QIODevice::WriteOnly)) gf.write(saveGeometry());
+    s->setValue("query", ui->searchRequest->text());
+    s->setValue("city", ui->cityInput->text());
+    s->setValue("source", ui->sourceCombo->currentText());
+    s->setValue("gridSize", ui->gridSize->value());
+
+    QStringList keywords;
+    for (int i = 0; i < ui->keywordsList->count(); ++i)
+        keywords << ui->keywordsList->item(i)->text();
+    s->setValue("keywords", keywords);
+    s->setValue("stopwords", m_stopStore->list());
+}
+
+void MainWindow::loadSettings()
+{
+    auto s = appSettings();
+    QFile gf(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/geometry.dat");
+    if (gf.open(QIODevice::ReadOnly)) restoreGeometry(gf.readAll());
+    if (s->contains("query"))
+        ui->searchRequest->setText(s->value("query").toString());
+    if (s->contains("city"))
+        ui->cityInput->setText(s->value("city").toString());
+    if (s->contains("source")) {
+        const int idx = ui->sourceCombo->findText(s->value("source").toString());
+        if (idx >= 0) ui->sourceCombo->setCurrentIndex(idx);
+    }
+    if (s->contains("gridSize"))
+        ui->gridSize->setValue(s->value("gridSize").toInt());
+    if (s->contains("keywords")) {
+        for (const QString& w : s->value("keywords").toStringList())
+            ui->keywordsList->addItem(w);
+    }
+    if (s->contains("stopwords")) {
+        const QStringList words = s->value("stopwords").toStringList();
+        m_stopStore->setList(words);
+        for (const QString& w : words)
+            ui->stopWordsList->addItem(w);
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent* e)
+{
+    saveSettings();
+    QMainWindow::closeEvent(e);
 }
 
 MainWindow::~MainWindow()

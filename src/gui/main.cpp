@@ -12,6 +12,8 @@ int main(int argc, char *argv[])
     QtWebEngine::initialize();
 
     QApplication a(argc, argv);
+    a.setOrganizationName("Spothound");
+    a.setApplicationName("Spothound");
     a.setWindowIcon(QIcon(":/icons/main-icon.png"));
     MainWindow w;
     w.show();

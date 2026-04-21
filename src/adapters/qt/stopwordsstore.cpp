@@ -23,6 +23,7 @@ void StopWordsStore::rebuild()
 
 bool StopWordsStore::load()
 {
+    if (m_path.isEmpty()) { rebuild(); return false; }
     QFile f(m_path);
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { rebuild(); return false; }
     QStringList out;
@@ -36,6 +37,7 @@ bool StopWordsStore::load()
 
 bool StopWordsStore::save() const
 {
+    if (m_path.isEmpty()) return true;
     QFile f(m_path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
     QTextStream ts(&f); ts.setCodec("UTF-8");
