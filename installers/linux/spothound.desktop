@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Name=Spothound
+GenericName=Map Business Scraper
+Comment=Scrape business listings from Yandex Maps, 2GIS, Google Maps
+Exec=spothound
+Icon=main-icon
+Terminal=false
+Type=Application
+Categories=Utility;

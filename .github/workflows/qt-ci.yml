@@ -1,8 +1,60 @@
-name: Build Windows EXE
+name: CI
 
 on: [push, pull_request]
 
 jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+      with: { submodules: recursive }
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y ninja-build fuse libfuse2 \
+          libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+          libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 \
+          libxcb-xkb1 libxkbcommon-x11-0
+
+    - name: Install Qt 5.15.2 + WebEngine
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: 5.15.2
+        host: linux
+        target: desktop
+        arch: gcc_64
+        modules: qtwebengine
+
+    - name: Configure
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --parallel
+
+    - name: Package AppImage
+      env:
+        APPIMAGE_EXTRACT_AND_RUN: 1
+        OUTPUT: spothound-linux-x86_64.AppImage
+      run: |
+        convert icons/main-icon.png -resize 512x512 /tmp/main-icon.png
+        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+        chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+        ./linuxdeploy-x86_64.AppImage \
+          --appdir AppDir \
+          --executable build/spothound \
+          --desktop-file installers/linux/spothound.desktop \
+          --icon-file /tmp/main-icon.png \
+          --plugin qt \
+          --output appimage
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: spothound-linux-x86_64
+        path: spothound-linux-x86_64.AppImage
+
   build-win:
     runs-on: windows-latest
     steps:

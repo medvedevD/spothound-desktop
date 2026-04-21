@@ -6,6 +6,9 @@
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_LINUX
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox");
+#endif
     QtWebEngine::initialize();
 
     QApplication a(argc, argv);
