@@ -32,7 +32,6 @@ jobs:
         QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox
       run: |
         xvfb-run -a ./build/tests/integration/spothound_acceptance_tests \
-          --gtest_filter="AcceptanceSuite*" \
           --gtest_output="xml:acceptance-results.xml"
 
     - name: Upload results
