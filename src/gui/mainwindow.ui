@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1007</width>
+    <height>791</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Spothound</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QStackedWidget" name="stackedWidget">
+      <property name="currentIndex">
+       <number>1</number>
+      </property>
+      <widget class="QWidget" name="startPage">
+       <layout class="QVBoxLayout" name="startLayout">
+        <item>
+         <widget class="QLabel" name="titleLabel">
+          <property name="font">
+           <font>
+            <pointsize>28</pointsize>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Spothound</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="subtitleLabel">
+          <property name="text">
+           <string>Парсер карточек с Яндекс.Карт, 2ГИС и Google Maps</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="columnsLayout">
+          <item>
+           <widget class="QGroupBox" name="searchGroup">
+            <property name="title">
+             <string>Поиск</string>
+            </property>
+            <layout class="QVBoxLayout" name="searchGroupLayout">
+             <item>
+              <layout class="QFormLayout" name="formLayout">
+               <item row="0" column="0">
+                <widget class="QLabel" name="labelSource">
+                 <property name="text">
+                  <string>Источник:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QComboBox" name="sourceCombo">
+                 <item>
+                  <property name="text">
+                   <string>Яндекс.Карты</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>2ГИС</string>
+                  </property>
+                 </item>
+                 <item>
+                  <property name="text">
+                   <string>Google Maps</string>
+                  </property>
+                 </item>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="labelCity">
+                 <property name="text">
+                  <string>Город:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLineEdit" name="cityInput">
+                 <property name="placeholderText">
+                  <string>Москва</string>
+                 </property>
+                 <property name="clearButtonEnabled">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="labelQuery">
+                 <property name="text">
+                  <string>Запрос:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLineEdit" name="searchRequest">
+                 <property name="placeholderText">
+                  <string>Поисковый запрос</string>
+                 </property>
+                 <property name="clearButtonEnabled">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="gridLabel">
+                 <property name="text">
+                  <string>Сетка 5×5:</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QSpinBox" name="gridSize">
+                 <property name="minimum">
+                  <number>2</number>
+                 </property>
+                 <property name="maximum">
+                  <number>10</number>
+                 </property>
+                 <property name="value">
+                  <number>5</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <spacer>
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="startBtn">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>36</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Начать парсинг</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QTabWidget" name="filtersTab">
+            <widget class="QWidget" name="tabKeywords">
+             <attribute name="title">
+              <string>Ключевые слова</string>
+             </attribute>
+             <layout class="QVBoxLayout">
+              <item>
+               <widget class="QLabel" name="keywordsLabel">
+                <property name="text">
+                 <string>Ключевые слова для скоринга:</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="HintListWidget" name="keywordsList"/>
+              </item>
+              <item>
+               <layout class="QHBoxLayout">
+                <item>
+                 <widget class="QLineEdit" name="keywordInput">
+                  <property name="placeholderText">
+                   <string>Новое слово...</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnAddKeyword">
+                  <property name="text">
+                   <string>Добавить</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnRemoveKeyword">
+                  <property name="text">
+                   <string>Удалить</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+            <widget class="QWidget" name="tabStopWords">
+             <attribute name="title">
+              <string>Стоп-слова</string>
+             </attribute>
+             <layout class="QVBoxLayout">
+              <item>
+               <widget class="QLabel" name="stopWordsLabel">
+                <property name="text">
+                 <string>Стоп-слова (результаты с этими словами будут скрыты):</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="HintListWidget" name="stopWordsList"/>
+              </item>
+              <item>
+               <layout class="QHBoxLayout">
+                <item>
+                 <widget class="QLineEdit" name="stopWordInput">
+                  <property name="placeholderText">
+                   <string>Новое слово...</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnAddStopWord">
+                  <property name="text">
+                   <string>Добавить</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="btnRemoveStopWord">
+                  <property name="text">
+                   <string>Удалить</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="resultsPage">
+       <layout class="QVBoxLayout" name="resultsLayout">
+        <item>
+         <layout class="QHBoxLayout">
+          <item>
+           <widget class="QLabel" name="searchSummaryLabel">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer>
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="previewCheck">
+            <property name="text">
+             <string>Показывать браузер</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnNewSearch">
+            <property name="text">
+             <string>Новый поиск</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QSplitter" name="browserSplitter">
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <widget class="QTableView" name="tableView"/>
+          <widget class="QWidget" name="browserContainer" native="true">
+           <property name="minimumSize">
+            <size><width>400</width><height>0</height></size>
+           </property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout">
+          <item>
+           <widget class="QPushButton" name="exportCsv">
+            <property name="text">
+             <string>Экспорт CSV</string>
+            </property>
+            <property name="icon">
+             <iconset theme="text-csv"/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="exportXlsx">
+            <property name="text">
+             <string>Экспорт XLSX</string>
+            </property>
+            <property name="icon">
+             <iconset theme="libreoffice-oasis-spreadsheet"/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="btnClear">
+            <property name="text">
+             <string>Очистить таблицу</string>
+            </property>
+            <property name="icon">
+             <iconset theme="edit-clear"/>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1007</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>HintListWidget</class>
+   <extends>QListWidget</extends>
+   <header>hintlistwidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,11 +1,12 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 
 project(spothound VERSION 0.1 LANGUAGES CXX)
 
 add_subdirectory(3rdparty/QXlsx/QXlsx)
+add_subdirectory(src/core)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_AUTOUIC_SEARCH_PATHS src)
+set(CMAKE_AUTOUIC_SEARCH_PATHS src/gui)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -14,38 +15,36 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine Test)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets WebEngineWidgets Sql WebEngine Test)
 
 set(PROJECT_SOURCES
-        src/main.cpp
-        src/mainwindow.cpp
-        src/mainwindow.h
-        src/mainwindow.ui
-        src/scrapetask.h
-        src/scrapetask.cpp
-        src/rules.h
-        src/rules.cpp
-        src/yandexscraper.h
-        src/yandexscraper.cpp
-        src/placerow.h
-        src/placesmodel.h
-        src/placesmodel.cpp
-        src/loggingpage.h
-        src/loggingpage.cpp
-        src/captchaawarepage.h
-        src/captchaawarepage.cpp
-        src/stopwordsstore.h
-        src/stopwordsstore.cpp
-        src/stopwordsdialog.h
-        src/stopwordsdialog.cpp
-        src/stopwordsdialog.ui
-        src/cityregistry.h
-        src/cityregistry.cpp
-        src/twogisscraper.h
-        src/twogisscraper.cpp
-        src/googlemapsscraper.h
-        src/googlemapsscraper.cpp
+        src/gui/main.cpp
+        src/gui/mainwindow.cpp
+        src/gui/mainwindow.h
+        src/gui/mainwindow.ui
+        src/gui/placesmodel.h
+        src/gui/placesmodel.cpp
+        src/gui/hintlistwidget.h
+        src/adapters/qt/scrapetask.h
+        src/adapters/qt/scrapetask.cpp
+        src/adapters/qt/yandexscraper.h
+        src/adapters/qt/yandexscraper.cpp
+        src/adapters/qt/yandexcollector.h
+        src/adapters/qt/yandexcollector.cpp
+        src/adapters/qt/yandexparser.h
+        src/adapters/qt/yandexparser.cpp
+        src/adapters/qt/twogisscraper.h
+        src/adapters/qt/twogisscraper.cpp
+        src/adapters/qt/googlemapsscraper.h
+        src/adapters/qt/googlemapsscraper.cpp
+        src/adapters/qt/captchaawarepage.h
+        src/adapters/qt/captchaawarepage.cpp
+        src/adapters/qt/loggingpage.h
+        src/adapters/qt/loggingpage.cpp
+        src/adapters/qt/stopwordsstore.h
+        src/adapters/qt/stopwordsstore.cpp
+        src/adapters/qt/yandex_js.h
         resources.qrc
 )
 
@@ -58,27 +57,16 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET spothound APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 else()
-    if(ANDROID)
-        add_library(spothound SHARED
-            ${PROJECT_SOURCES}
-        )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
-    else()
-        add_executable(spothound
-            ${PROJECT_SOURCES}
-        )
-    endif()
+    add_executable(spothound
+        ${PROJECT_SOURCES}
+    )
 endif()
 
-target_include_directories(spothound PRIVATE src)
+target_include_directories(spothound PRIVATE src src/gui src/adapters/qt)
 target_link_libraries(spothound PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt5::WebEngineWidgets Qt5::WebEngine Qt5::Sql)
 target_link_libraries(spothound PRIVATE QXlsx::QXlsx)
+target_link_libraries(spothound PRIVATE spothound-core)
 
 set_target_properties(spothound PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
@@ -90,4 +78,20 @@ set_target_properties(spothound PROPERTIES
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(spothound)
+endif()
+
+option(BUILD_TESTING "Build unit tests for spothound-core" OFF)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests/core)
+    add_subdirectory(tests/scraper)
+else()
+    add_subdirectory(tests/core EXCLUDE_FROM_ALL)
+    add_subdirectory(tests/scraper EXCLUDE_FROM_ALL)
+endif()
+
+option(BUILD_INTEGRATION_TESTS "Build network-dependent integration tests (requires internet)" OFF)
+if(BUILD_INTEGRATION_TESTS)
+    enable_testing()
+    add_subdirectory(tests/integration)
 endif()
