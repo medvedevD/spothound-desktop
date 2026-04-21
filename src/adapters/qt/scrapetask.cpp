@@ -3,7 +3,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <QDateTime>
 #include <QDebug>
 #include <QFile>
 #include <QStandardPaths>
@@ -51,9 +50,8 @@ void ScrapeTask::emitStats()
         .arg(m_stats.probeRetries));
 
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-    const QString ts  = QString::number(QDateTime::currentSecsSinceEpoch());
-    QFile f(dir + "/spothound_perf_" + ts + ".json");
-    if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    QFile f(dir + "/spothound_perf_last.json");
+    if (f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
         const nlohmann::json j = m_stats;
         const std::string dumped = j.dump(2);
         f.write(dumped.data(), static_cast<qint64>(dumped.size()));
