@@ -6,6 +6,7 @@
 
 #include <QEventLoop>
 #include <QTimer>
+#include <QWebEnginePage>
 #include <QWebEngineProfile>
 
 static constexpr int kTimeoutMs = 5 * 60 * 1000;
