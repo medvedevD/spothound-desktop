@@ -27,6 +27,7 @@ public:
 
     virtual void start() = 0;
     virtual void reset() = 0;
+    void cancel();
 
 signals:
     void result(core::PlaceRow row);

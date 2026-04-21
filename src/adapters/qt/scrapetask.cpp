@@ -27,6 +27,12 @@ ScrapeTask::ScrapeTask(QString query, QString city,
 {
 }
 
+void ScrapeTask::cancel()
+{
+    reset();
+    emit finished();
+}
+
 bool ScrapeTask::isBlocked(const core::PlaceRow& r) const
 {
     return m_stopWordsStore && m_stopWordsStore->matchesRow(r);

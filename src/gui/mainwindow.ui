@@ -293,6 +293,13 @@
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="btnStop">
+            <property name="text">
+             <string>Стоп</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QPushButton" name="btnNewSearch">
             <property name="text">
              <string>Новый поиск</string>

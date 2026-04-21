@@ -194,6 +194,8 @@ void MainWindow::setupStopWordsList()
 
 void MainWindow::setupResultsPage()
 {
+    ui->btnStop->hide();
+
     connect(ui->previewCheck, &QCheckBox::toggled, this, [this](bool checked) {
         if (checked) {
             ui->browserContainer->setVisible(true);
@@ -205,8 +207,14 @@ void MainWindow::setupResultsPage()
         }
     });
 
+    connect(ui->btnStop, &QPushButton::clicked, this, [this] {
+        if (m_currentScraper) m_currentScraper->cancel();
+        m_phaseLbl->setText("Отменено");
+        ui->btnStop->hide();
+    });
+
     connect(ui->btnNewSearch, &QPushButton::clicked, this, [this] {
-        if (m_currentScraper) m_currentScraper->reset();
+        if (m_currentScraper) m_currentScraper->cancel();
         m_model->clear();
         m_phaseLbl->setText(QString());
         statusBar()->hide();
@@ -215,16 +223,18 @@ void MainWindow::setupResultsPage()
         m_progress->setValue(0);
         m_progress->setFormat(QString());
         ui->previewCheck->setChecked(false);
+        ui->btnStop->hide();
         ui->stackedWidget->setCurrentIndex(0);
     });
 
     connect(ui->btnClear, &QPushButton::clicked, this, [this] {
-        if (m_currentScraper) m_currentScraper->reset();
+        if (m_currentScraper) m_currentScraper->cancel();
         m_model->clear();
         m_phaseLbl->setText(QString());
         m_progress->setRange(0, 1);
         m_progress->setValue(0);
         m_progress->setFormat(QString());
+        ui->btnStop->hide();
     });
 }
 
@@ -329,7 +339,7 @@ void MainWindow::onStart()
     for (int i = 0; i < ui->keywordsList->count(); ++i)
         keywords << ui->keywordsList->item(i)->text();
 
-    if (m_currentScraper) m_currentScraper->reset();
+    if (m_currentScraper) m_currentScraper->cancel();
 
     ScrapeTask* scraper = nullptr;
     const int source = ui->sourceCombo->currentIndex();
@@ -415,8 +425,10 @@ void MainWindow::onStart()
     connect(scraper, &ScrapeTask::finished, this, [this, scraper]{
         if (m_currentScraper == scraper) m_currentScraper = nullptr;
         scraper->deleteLater();
+        ui->btnStop->hide();
     });
 
+    ui->btnStop->show();
     m_view->setHtml(kSpinnerHtml);
 
     scraper->start();

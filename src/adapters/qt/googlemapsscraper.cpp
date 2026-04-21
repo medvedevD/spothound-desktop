@@ -236,7 +236,7 @@ void GoogleMapsScraper::openCard(const QUrl& href)
             return;
         }
 
-        auto probe = new std::function<void(int)>;
+        auto probe = QSharedPointer<std::function<void(int)>>::create();
         *probe = [this, page, probe](int left){
             static const QString readyJS = R"JS(
               (function(){
@@ -294,6 +294,7 @@ void GoogleMapsScraper::openCard(const QUrl& href)
                     })();
                     )JS";
                     page->runJavaScript(js, [this, page](const QVariant& v){
+                        if (m_aborted) { page->deleteLater(); return; }
                         const auto m = v.toMap();
 
                         core::PlaceRow r;
