@@ -78,7 +78,7 @@ jobs:
       run: cmake --build build --parallel --target spothound_core_tests
 
     - name: Run tests
-      run: ctest --test-dir build --output-on-failure -R spothound_core_tests
+      run: ./build/tests/core/spothound_core_tests
 
     - name: Coverage report (≥80% required)
       run: |
