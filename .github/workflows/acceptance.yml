@@ -1,0 +1,43 @@
+name: Acceptance Suite
+
+on:
+  workflow_dispatch:
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+    - uses: actions/checkout@v4
+      with: { submodules: recursive }
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y ninja-build xvfb \
+          qtbase5-dev qtwebengine5-dev qtbase5-private-dev libqt5sql5-sqlite
+
+    - name: Configure
+      run: |
+        cmake -S . -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_INTEGRATION_TESTS=ON
+
+    - name: Build
+      run: cmake --build build --parallel --target spothound_acceptance_tests
+
+    - name: Run acceptance suite
+      env:
+        QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox
+      run: |
+        xvfb-run -a ./build/tests/integration/spothound_acceptance_tests \
+          --gtest_filter="AcceptanceSuite*" \
+          --gtest_output="xml:acceptance-results.xml"
+
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: acceptance-results
+        path: acceptance-results.xml

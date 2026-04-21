@@ -50,3 +50,8 @@ TEST(RulesScore, KeywordNormalized) {
     auto [s, why] = core::Rules::score("КАФЕ", "", false, {"кафе"});
     EXPECT_EQ(s, 1);
 }
+
+TEST(RulesScore, WhitespaceOnlyKeywordSkipped) {
+    auto [s, why] = core::Rules::score("кафе", "", false, {"   "});
+    EXPECT_EQ(s, 0);
+}
