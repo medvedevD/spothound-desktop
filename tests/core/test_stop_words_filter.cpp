@@ -1,6 +1,12 @@
 #include <gtest/gtest.h>
 #include "core/stop_words_filter.h"
 
+TEST(StopWordsFilter, WhitespaceOnlyWordSkipped) {
+    core::StopWordsFilter f;
+    f.setWords({"   "});
+    EXPECT_FALSE(f.matches("кафе"));
+}
+
 TEST(StopWordsFilter, EmptyListNoMatch) {
     core::StopWordsFilter f;
     EXPECT_FALSE(f.matches("кафе бар ресторан"));

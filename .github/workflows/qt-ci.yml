@@ -55,6 +55,38 @@ jobs:
         name: spothound-linux-x86_64
         path: spothound-linux-x86_64.AppImage
 
+  coverage:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+      with: { submodules: recursive }
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y ninja-build gcovr \
+          qtbase5-dev qtwebengine5-dev qtbase5-private-dev libqt5sql5-sqlite
+
+    - name: Configure
+      run: |
+        cmake -S . -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DBUILD_TESTING=ON \
+          -DENABLE_COVERAGE=ON
+
+    - name: Build tests
+      run: cmake --build build --parallel --target spothound_core_tests
+
+    - name: Run tests
+      run: ctest --test-dir build --output-on-failure -R spothound_core_tests
+
+    - name: Coverage report (≥80% required)
+      run: |
+        gcovr -r . --object-directory build \
+          --filter 'src/core/' \
+          --print-summary \
+          --fail-under-line 80
+
   build-win:
     runs-on: windows-latest
     steps:

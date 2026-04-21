@@ -32,3 +32,9 @@ target_include_directories(spothound-core
 target_compile_features(spothound-core PUBLIC cxx_std_17)
 target_link_libraries(spothound-core PUBLIC nlohmann_json::nlohmann_json)
 # No Qt linkage — any #include <Qt*> in a core file will break the build
+
+option(ENABLE_COVERAGE "Enable gcov coverage instrumentation (GCC/Clang only)" OFF)
+if(ENABLE_COVERAGE AND NOT MSVC)
+    target_compile_options(spothound-core PUBLIC --coverage -O0 -g)
+    target_link_options(spothound-core PUBLIC --coverage)
+endif()
