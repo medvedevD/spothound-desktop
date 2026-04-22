@@ -20,6 +20,8 @@
 #include <QCloseEvent>
 #include <QSettings>
 
+static std::unique_ptr<QSettings> appSettings();
+
 static const char* kSpinnerHtml = R"(<!DOCTYPE html><html><head><style>
 body{margin:0;display:flex;align-items:center;justify-content:center;
      height:100vh;background:#1e1e1e;font-family:sans-serif;color:#999;}
@@ -38,6 +40,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     setupStatusBar();
+    setupSourceCombo();
     setupTableView();
     setupBrowserPanel();
     setupKeywordsList();
@@ -55,6 +58,21 @@ MainWindow::MainWindow(QWidget *parent)
     ui->stackedWidget->setCurrentIndex(0);
 
     loadSettings();
+}
+
+void MainWindow::setupSourceCombo()
+{
+    m_experimentalLbl = new QLabel(
+        "⚠ Экспериментальный источник — результаты могут быть неполными.\n"
+        "Для надёжного сбора используйте Яндекс.Карты.");
+    m_experimentalLbl->setWordWrap(true);
+    m_experimentalLbl->setStyleSheet("color: #e8a000; font-size: 11px;");
+    m_experimentalLbl->setVisible(false);
+    ui->formLayout->insertRow(1, m_experimentalLbl);
+
+    connect(ui->sourceCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](int idx) {
+        m_experimentalLbl->setVisible(idx != 0);
+    });
 }
 
 void MainWindow::setupStatusBar()
@@ -256,7 +274,7 @@ void MainWindow::saveSettings()
     if (gf.open(QIODevice::WriteOnly)) gf.write(saveGeometry());
     s->setValue("query", ui->searchRequest->text());
     s->setValue("city", ui->cityInput->text());
-    s->setValue("source", ui->sourceCombo->currentText());
+    s->setValue("source", ui->sourceCombo->currentIndex());
     s->setValue("gridSize", ui->gridSize->value());
 
     QStringList keywords;
@@ -276,8 +294,9 @@ void MainWindow::loadSettings()
     if (s->contains("city"))
         ui->cityInput->setText(s->value("city").toString());
     if (s->contains("source")) {
-        const int idx = ui->sourceCombo->findText(s->value("source").toString());
-        if (idx >= 0) ui->sourceCombo->setCurrentIndex(idx);
+        const int idx = s->value("source").toInt();
+        if (idx >= 0 && idx < ui->sourceCombo->count())
+            ui->sourceCombo->setCurrentIndex(idx);
     }
     if (s->contains("gridSize"))
         ui->gridSize->setValue(s->value("gridSize").toInt());

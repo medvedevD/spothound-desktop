@@ -74,12 +74,12 @@
                  </item>
                  <item>
                   <property name="text">
-                   <string>2ГИС</string>
+                   <string>2ГИС (бета)</string>
                   </property>
                  </item>
                  <item>
                   <property name="text">
-                   <string>Google Maps</string>
+                   <string>Google Maps (бета)</string>
                   </property>
                  </item>
                 </widget>

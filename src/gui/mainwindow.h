@@ -30,6 +30,7 @@ protected:
 
 private:
     void setupStatusBar();
+    void setupSourceCombo();
     void saveSettings();
     void loadSettings();
     void setupTableView();
@@ -49,6 +50,7 @@ private:
     StopWordsStore *m_stopStore = nullptr;
     ScrapeTask *m_currentScraper = nullptr;
 
+    QLabel* m_experimentalLbl = nullptr;
     QList<int> m_splitterSizes;
 
     QLabel* m_phaseLbl = nullptr;
